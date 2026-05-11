@@ -6,7 +6,7 @@ Human Resources Information System (HRIS) berbasis EMS dengan monorepo React + E
 
 Proyek ini terdiri dari:
 - `client/`: Frontend React dengan Vite, Google OAuth, peta Leaflet, dan fitur absensi.
-- `server/`: Backend Express dengan MongoDB, Mongoose, Google OAuth verification, absensi, riwayat, dan ringkasan hari ini.
+- `server/`: Backend Express dengan Postgresql, Google OAuth verification, absensi, riwayat, dan ringkasan hari ini.
 - `docker-compose.yml`: Konfigurasi MongoDB, backend, dan frontend untuk pengembangan container.
 
 ## Fitur Utama
@@ -16,7 +16,7 @@ Proyek ini terdiri dari:
 - Riwayat absensi dan ringkasan kehadiran harian
 - Dashboard karyawan dengan manajemen profil
 - Request jenis cuti, izin, sakit, lembur, reimburse, dan lain-lain
-- Backend MongoDB + Express + Mongoose
+- Backend Postgresql + Express + Postgres
 - Frontend React + Vite + Leaflet
 
 ## Struktur Proyek
