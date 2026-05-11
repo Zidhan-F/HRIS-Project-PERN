@@ -308,10 +308,10 @@ function App() {
 
   useEffect(() => {
     if (activeMenu === 'dashboard' && activeTab === 'feed') { fetchOnLeaveToday(); fetchRecentActivities(); }
-    if (activeMenu === 'leave') { fetchRequests(); if (['manager', 'admin'].includes(user?.role)) fetchPendingRequests(); }
+    if (activeMenu === 'leave') { fetchRequests(); if (['super_admin', 'manager', 'admin', 'hrd'].includes(user?.role)) fetchPendingRequests(); }
     if (activeMenu === 'payroll') {
       fetchMyPayslip(payrollPeriod.month, payrollPeriod.year);
-      if (['admin', 'hrd', 'manager'].includes(user?.role)) fetchPayrollRecords(payrollPeriod.month, payrollPeriod.year);
+      if (['super_admin', 'admin', 'hrd', 'manager'].includes(user?.role)) fetchPayrollRecords(payrollPeriod.month, payrollPeriod.year);
     }
   }, [activeMenu, fetchRequests, fetchPendingRequests, user?.role]);
 
@@ -412,13 +412,28 @@ function App() {
     e.preventDefault(); setIsSubmittingRequest(true);
     try {
       if (selectedRequestType === 'Leave') {
-        const s = new Date(requestFormData.startDate); const end = new Date(requestFormData.endDate);
+        const s = new Date(requestFormData.startDate); const end = new Date(requestFormData.endDate || requestFormData.startDate);
         const diff = Math.ceil(Math.abs(end - s) / (1000 * 60 * 60 * 24)) + 1;
-        if (diff > (user.leaveQuota || 0)) { alert(`Maaf, jatah cuti Anda tidak mencukupi. Tersisa: ${user.leaveQuota || 0} hari, yang diminta: ${diff} hari.`); setIsSubmittingRequest(false); return; }
+        if (diff > (user.leaveQuota || 0)) {
+          if (!window.confirm(`Jatah cuti Anda tersisa ${user.leaveQuota || 0} hari, yang diminta ${diff} hari. Kelebihan akan dihitung sebagai Unpaid Leave. Lanjutkan?`)) {
+            setIsSubmittingRequest(false); return;
+          }
+        }
       }
-      const res = await axios.post(`${API_URL}/api/requests`, { email: user.email, name: user.name, type: selectedRequestType, ...requestFormData });
+      const submitData = {
+        email: user.email, name: user.name, type: selectedRequestType,
+        startDate: requestFormData.startDate,
+        endDate: requestFormData.endDate || requestFormData.startDate,
+        reason: requestFormData.reason,
+        amount: requestFormData.amount || null,
+      };
+      const res = await axios.post(`${API_URL}/api/requests`, submitData);
       if (res.data.success) { setShowRequestModal(false); fetchRequests(); setStatusMsg({ type: 'success', text: selectedRequestType === 'Leave' ? 'Permintaan cuti berhasil dikirim! Jatah akan dikurangi setelah disetujui.' : 'Permintaan berhasil dikirim!' }); setTimeout(() => setStatusMsg(null), 3000); }
-    } catch (err) { console.error('Submit error:', err); }
+    } catch (err) {
+      console.error('Submit error:', err);
+      const errMsg = err.response?.data?.message || 'Gagal mengirim permintaan. Coba lagi.';
+      setStatusMsg({ type: 'error', text: errMsg }); setTimeout(() => setStatusMsg(null), 5000);
+    }
     finally { setIsSubmittingRequest(false); }
   };
   const handleApproveRequest = async (id, status) => {
@@ -460,7 +475,7 @@ function App() {
 
   const handleDashboardViewMore = () => {
     setActiveMenu('leave');
-    if (['manager', 'admin'].includes(user?.role)) { setLeaveTab('approval'); fetchPendingRequests(); }
+    if (['super_admin', 'manager', 'admin', 'hrd'].includes(user?.role)) { setLeaveTab('approval'); fetchPendingRequests(); }
     else { setLeaveTab('history'); fetchRequests(); }
   };
 

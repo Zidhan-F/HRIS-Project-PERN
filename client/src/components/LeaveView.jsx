@@ -12,7 +12,7 @@ export default function LeaveView({
         <div className="leave-tabs">
           <button className={`leave-tab-btn ${leaveTab === 'new' ? 'active' : ''}`} onClick={() => setLeaveTab('new')}>New Request</button>
           <button className={`leave-tab-btn ${leaveTab === 'history' ? 'active' : ''}`} onClick={() => setLeaveTab('history')}>My History</button>
-          {['manager', 'admin', 'hrd'].includes(user?.role) && (
+          {['super_admin', 'manager', 'admin', 'hrd'].includes(user?.role) && (
             <button className={`leave-tab-btn ${leaveTab === 'approval' ? 'active' : ''}`} onClick={() => { setLeaveTab('approval'); fetchPendingRequests(); }}>
               Approvals {pendingRequests.length > 0 && <span className="approve-badge">{pendingRequests.length}</span>}
             </button>

@@ -93,7 +93,7 @@ export default function PayrollView({
   const [isSavingSetting, setIsSavingSetting] = useState(false);
 
   const periodLabel = `${MONTH_NAMES[payrollPeriod?.month ?? currentTime.getMonth()]} ${payrollPeriod?.year ?? currentTime.getFullYear()}`;
-  const isAdmin = ['admin', 'hrd', 'manager'].includes(user?.role);
+  const isAdmin = ['super_admin', 'admin', 'hrd', 'manager'].includes(user?.role);
 
   // Fetch settings on mount
   useEffect(() => {

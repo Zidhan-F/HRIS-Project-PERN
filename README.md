@@ -1,103 +1,79 @@
-# HRIS Project
+# DayHR - Multi-Tenant HRIS Project
 
-Human Resources Information System (HRIS) berbasis EMS dengan monorepo React + Express + MongoDB.
+Human Resources Information System (HRIS) modern dengan arsitektur Multi-Tenant berbasis stack PERN (Postgres, Express, React, Node.js).
 
-## Ringkasan
+## Ringkasan Proyek
 
-Proyek ini terdiri dari:
-- `client/`: Frontend React dengan Vite, Google OAuth, peta Leaflet, dan fitur absensi.
-- `server/`: Backend Express dengan Postgresql, Google OAuth verification, absensi, riwayat, dan ringkasan hari ini.
-- `docker-compose.yml`: Konfigurasi MongoDB, backend, dan frontend untuk pengembangan container.
+Proyek ini telah dimigrasi ke PostgreSQL (Supabase) untuk mendukung skala ribuan pengguna dan isolasi data antar perusahaan (multi-tenant).
+
+- `client/`: Frontend React + Vite + Tailwind CSS.
+- `server/`: Backend Express + Sequelize (PostgreSQL).
 
 ## Fitur Utama
 
-- Login Google OAuth
-- Absensi kehadiran dengan lokasi GPS
-- Riwayat absensi dan ringkasan kehadiran harian
-- Dashboard karyawan dengan manajemen profil
-- Request jenis cuti, izin, sakit, lembur, reimburse, dan lain-lain
-- Backend Postgresql + Express + Postgres
-- Frontend React + Vite + Leaflet
-
-## Struktur Proyek
-
-- `client/` - Frontend
-- `server/` - Backend
-- `docker-compose.yml` - Layanan MongoDB, backend, frontend
-- `package.json` - Skrip build monorepo
+- **Multi-Tenant Architecture**: Pemisahan data antar perusahaan menggunakan `company_id`.
+- **Super Admin Console**: Manajemen global perusahaan dan pengguna.
+- **Google OAuth**: Login aman terintegrasi.
+- **Attendance with Geofencing**: Absensi dengan lokasi GPS dan radius kantor.
+- **Payroll System**: Perhitungan gaji otomatis, BPJS, PPh21, dan slip gaji PDF.
+- **Request Management**: Pengajuan cuti, izin, lembur, dan reimbursement.
 
 ## Persiapan Lingkungan
 
-### 1. Clone repository
-
+### 1. Clone & Install
 ```bash
-git clone https://github.com/Zidhan-F/hris-project.git
-cd hris-project
+git clone https://github.com/Zidhan-F/HRIS-Project-PERN.git
+cd HRIS-Project-PERN
+
+# Install Server
+cd server && npm install
+
+# Install Client
+cd ../client && npm install
 ```
 
-### 2. Install dependencies
+### 2. Konfigurasi Environment (.env)
+
+Buat file `.env` di folder `server/`:
+```env
+PORT=5000
+DATABASE_URL=postgresql://user:password@host:port/dbname
+GOOGLE_CLIENT_ID=xxx
+GOOGLE_CLIENT_SECRET=xxx
+ROOT_ADMIN_EMAIL=your-email@gmail.com
+FRONTEND_URL=http://localhost:5173
+```
+
+### 3. Setup Database (PENTING)
+
+Jika Anda baru melakukan setup di laptop baru, jalankan perintah berikut secara berurutan untuk sinkronisasi tabel dan pembuatan Super Admin:
 
 ```bash
 cd server
-npm install
-cd ../client
-npm install
+# 1. Sinkronisasi tabel dan migrasi multi-tenant
+node scratch_migrate.js
+
+# 2. Inisialisasi akun Super Admin (Sesuaikan email di file)
+node scratch_superadmin.js
 ```
-
-### 3. Konfigurasi environment
-
-Buat file `.env` di `server/` dengan variabel berikut:
-
-```env
-PORT=5000
-MONGO_URI=<mongodb_connection_string>
-GOOGLE_CLIENT_ID=<your_google_oauth_client_id>
-```
-
-Jika menggunakan Docker Compose, file `.env` server akan dimuat secara otomatis.
 
 ## Menjalankan Aplikasi
 
-### Pilihan 1: Docker Compose
-
-```bash
-docker-compose up --build
-```
-
-- Backend tersedia di `http://localhost:5000`
-- Frontend tersedia di `http://localhost:5173`
-- MongoDB tersedia di `mongodb://localhost:27018`
-
-### Pilihan 2: Jalankan lokal manual
-
-Backend:
+**Backend:**
 ```bash
 cd server
 npm run dev
 ```
 
-Frontend:
+**Frontend:**
 ```bash
 cd client
 npm run dev
 ```
 
-## Build Produksi
+## Teknologi yang Digunakan
 
-Dari root proyek:
-
-```bash
-npm run build
-```
-
-Skrip ini akan membangun frontend dan memindahkan hasilnya ke direktori `dist`.
-
-## Catatan
-
-- Pastikan `GOOGLE_CLIENT_ID` dikonfigurasi untuk login OAuth Google.
-- `MONGO_URI` harus menunjuk ke instance MongoDB yang dapat diakses.
-- Frontend menggunakan `VITE_API_URL` untuk koneksi API jika diperlukan.
-
-## Kontak
-
-Jika membutuhkan bantuan, silakan lihat repository atau ajukan issue di GitHub.
+- **Frontend**: React, Vite, TailwindCSS, Lucide React, Recharts.
+- **Backend**: Node.js, Express, Sequelize ORM.
+- **Database**: PostgreSQL (Supabase).
+- **Services**: Google OAuth, Nodemailer (SMTP).

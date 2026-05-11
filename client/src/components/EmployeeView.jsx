@@ -54,7 +54,7 @@ export default function EmployeeView({
             <button className="back-btn" onClick={() => setSelectedEmployee(null)}>
               <span className="material-icons-outlined">arrow_back</span> Back to List
             </button>
-            {['admin', 'manager', 'hrd'].includes(user?.role) && (
+            {['super_admin', 'admin', 'manager', 'hrd'].includes(user?.role) && (
               <button className="profile-edit-btn" onClick={handleEditEmployee}>
                 <span className="material-icons-outlined">manage_accounts</span> Edit Details
               </button>
@@ -79,7 +79,7 @@ export default function EmployeeView({
               <button className={`profile-tab-btn ${empDetailTab === 'personal' ? 'active' : ''}`} onClick={() => setEmpDetailTab('personal')}>Personal</button>
               <button className={`profile-tab-btn ${empDetailTab === 'contract' ? 'active' : ''}`} onClick={() => setEmpDetailTab('contract')}>Contract</button>
               <button className={`profile-tab-btn ${empDetailTab === 'team' ? 'active' : ''}`} onClick={() => setEmpDetailTab('team')}>Team</button>
-              {['admin', 'manager', 'hrd'].includes(user?.role) && (
+              {['super_admin', 'admin', 'manager', 'hrd'].includes(user?.role) && (
                 <button className={`profile-tab-btn ${empDetailTab === 'attendance' ? 'active' : ''}`} onClick={() => {
                   setEmpDetailTab('attendance');
                   setIsFetchingEmpAttendance(true);

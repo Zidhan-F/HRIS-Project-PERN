@@ -158,12 +158,15 @@ router.post('/:id/invite', authMiddleware, async (req, res) => {
     const companyId = parseInt(req.params.id);
     const { email, name, role, position, department } = req.body;
 
+    console.log(`📩 Invite attempt: ${email} to company ${companyId} by ${req.user.email} (Role: ${req.user.role})`);
+
     // Permission check: super_admin can invite to any company, admin can invite to their own
     if (req.user.role === 'super_admin') {
-      // OK - can invite to any company
+      console.log('✅ Permission granted: Super Admin');
     } else if (req.user.role === 'admin' && req.user.companyId === companyId) {
-      // Company admin can invite to their own company
+      console.log('✅ Permission granted: Company Admin');
     } else {
+      console.log('❌ Permission denied: Not Super Admin and not Company Admin of this company');
       return res.status(403).json({ success: false, message: 'Akses ditolak. Hanya Super Admin atau Admin perusahaan ini yang dapat meng-invite.' });
     }
 
@@ -179,35 +182,31 @@ router.post('/:id/invite', authMiddleware, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Role tidak valid.' });
     }
 
-    // Only super_admin can assign admin role
-    if (targetRole === 'admin' && req.user.role !== 'super_admin') {
-      // Company admin CAN assign admin role to others in their company
-      // This is allowed per user request
-    }
-
-    // Prevent assigning super_admin role via invite
-    if (targetRole === 'super_admin') {
-      return res.status(400).json({ success: false, message: 'Role super_admin tidak dapat di-assign melalui invite.' });
-    }
-
     // Check if company exists
     const company = await Company.findByPk(companyId);
-    if (!company) return res.status(404).json({ success: false, message: 'Perusahaan tidak ditemukan.' });
-    if (company.status === 'inactive') return res.status(400).json({ success: false, message: 'Perusahaan sedang nonaktif.' });
+    if (!company) {
+      console.log(`❌ Company ${companyId} not found`);
+      return res.status(404).json({ success: false, message: 'Perusahaan tidak ditemukan.' });
+    }
+    if (company.status === 'inactive') {
+      return res.status(400).json({ success: false, message: 'Perusahaan sedang nonaktif.' });
+    }
 
     // Check if email already registered
     const existingUser = await User.findOne({ where: { email: { [Op.iLike]: email.trim() } } });
     if (existingUser) {
+      console.log(`❌ User ${email} already exists`);
       if (existingUser.companyId === companyId) {
         return res.status(400).json({ success: false, message: `${email} sudah terdaftar di ${company.name}.` });
       }
-      return res.status(400).json({ success: false, message: `${email} sudah terdaftar di perusahaan lain.` });
+      return res.status(400).json({ success: false, message: `${email} sudah terdaftar di perusahaan lain atau sebagai Super Admin.` });
     }
 
     // Create pre-registered user (will be activated on first Google login)
     const userCount = await User.count({ where: { companyId } });
     const employeeCode = `${company.code}-${userCount + 1}`;
     
+    console.log(`⏳ Creating user record for ${email}...`);
     const user = await User.create({
       name: name.trim(),
       email: email.trim().toLowerCase(),
@@ -224,6 +223,7 @@ router.post('/:id/invite', authMiddleware, async (req, res) => {
       bankAccount: '-', bankName: '-', payrollStatus: 'Unpaid', leaveQuota: 0,
     });
 
+    console.log(`🎉 User created successfully: ${user.id}`);
     res.status(201).json({
       success: true,
       message: `${email} berhasil didaftarkan ke ${company.name} sebagai ${targetRole}!`,
@@ -234,10 +234,11 @@ router.post('/:id/invite', authMiddleware, async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Invite employee error:', error.message);
-    res.status(500).json({ success: false, message: 'Gagal mendaftarkan karyawan.' });
+    console.error('❌ Invite employee error:', error.message);
+    res.status(500).json({ success: false, message: 'Gagal mendaftarkan karyawan: ' + error.message });
   }
 });
+
 
 // Global delete user for Super Admin
 router.delete('/users/:id', authMiddleware, requireSuperAdmin, async (req, res) => {

@@ -10,16 +10,22 @@ const ical = require('node-ical');
 router.post('/', authMiddleware, requireCompany, async (req, res) => {
   try {
     const { type, startDate, endDate, reason, amount } = req.body;
+    console.log(`📝 New request: type=${type}, user=${req.user.email}, company=${req.user.companyId}`);
     const validationErrors = validateRequestInput(req.body);
-    if (validationErrors.length > 0) return res.status(400).json({ success: false, message: validationErrors.join(', ') });
+    if (validationErrors.length > 0) {
+      console.log('❌ Validation errors:', validationErrors);
+      return res.status(400).json({ success: false, message: validationErrors.join(', ') });
+    }
     const newRequest = await Request.create({
       userId: req.user.id, companyId: req.user.companyId,
       email: req.user.email, name: req.user.name,
-      type, startDate, endDate, reason, amount,
+      type, startDate: startDate || new Date(), endDate: endDate || startDate || new Date(), reason, amount: amount || null,
     });
+    console.log(`✅ Request created: id=${newRequest.id}`);
     res.status(201).json({ success: true, message: 'Request submitted successfully!', request: newRequest });
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Failed to submit request.' });
+    console.error('❌ Request submit error:', error.message, error.stack);
+    res.status(500).json({ success: false, message: 'Failed to submit request: ' + error.message });
   }
 });
 

@@ -168,7 +168,7 @@ export default function Dashboard({
                   {locationStatus === 'granted' ? '✓ Ready for Attendance' : locationStatus === 'out_of_range' ? `✖ Move within ${officeSettings.radius}m` : ''}
                 </div>
 
-                {['admin', 'hrd'].includes(user?.role) && (
+                {['super_admin', 'admin', 'hrd'].includes(user?.role) && (
                   <button className="nav-icon-btn" style={{ width: '32px', height: '32px' }} onClick={() => alert('Silakan gunakan menu "Settings" di sidebar untuk mengubah lokasi kantor dan konfigurasi perusahaan.')} title="Go to Settings">
                     <span className="material-icons-outlined" style={{ fontSize: '18px' }}>settings</span>
                   </button>

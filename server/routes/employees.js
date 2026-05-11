@@ -115,7 +115,7 @@ router.put('/:id', authMiddleware, requireCompany, requireRole('super_admin', 'a
 });
 
 // Delete Employee
-router.delete('/:id', authMiddleware, requireCompany, requireRole('super_admin', 'admin'), async (req, res) => {
+router.delete('/:id', authMiddleware, requireCompany, requireRole('super_admin', 'admin', 'manager', 'hrd'), async (req, res) => {
   try {
     const { id } = req.params;
     const user = await User.findByPk(id);
