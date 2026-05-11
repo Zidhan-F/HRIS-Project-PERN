@@ -16,6 +16,7 @@ import PayrollView from './components/PayrollView';
 import LeaveView from './components/LeaveView';
 import AttendancePersonal from './components/AttendancePersonal';
 import AttendanceReport from './components/AttendanceReport';
+import DailyReport from './components/DailyReport';
 import ScheduleView from './components/ScheduleView';
 
 // Modals
@@ -94,6 +95,11 @@ function App() {
   const [reportMonth, setReportMonth] = useState(new Date().getMonth());
   const [reportYear, setReportYear] = useState(new Date().getFullYear());
 
+  // Daily Report States
+  const [dailyReports, setDailyReports] = useState([]);
+  const [isFetchingDaily, setIsFetchingDaily] = useState(false);
+  const [dailyDate, setDailyDate] = useState(new Date().toLocaleDateString('en-CA'));
+
   // Profile Edit States
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [editFormData, setEditFormData] = useState({});
@@ -158,6 +164,15 @@ function App() {
       if (res.data.success) setMonthlyReports(res.data.reports);
     } catch (err) { console.error('Error fetching reports:', err); }
     finally { setIsFetchingReports(false); }
+  }, []);
+
+  const fetchDailyReports = useCallback(async (date) => {
+    setIsFetchingDaily(true);
+    try {
+      const res = await axios.get(`${API_URL}/api/attendance/summary/daily`, { params: { date } });
+      if (res.data.success) setDailyReports(res.data.reports);
+    } catch (err) { console.error('Error fetching daily reports:', err); }
+    finally { setIsFetchingDaily(false); }
   }, []);
 
   const fetchAttendanceSummary = useCallback(async () => {
@@ -356,6 +371,7 @@ function App() {
     setActiveMenu(menuId); setActiveSubMenu(subId); setSelectedEmployee(null);
     if (subId === 'att-personal') fetchPersonalAttendance(selectedMonth, selectedYear);
     if (subId === 'att-report') fetchMonthlyReports(reportMonth, reportYear);
+    if (subId === 'att-daily') fetchDailyReports(dailyDate);
     closeSidebar();
   };
 
@@ -408,10 +424,10 @@ function App() {
   const handleSaveEmployee = async (e) => {
     e.preventDefault(); setIsSavingEmployee(true);
     try {
-      const res = await axios.put(`${API_URL}/api/employees/${selectedEmployee._id}`, editEmployeeData);
+      const res = await axios.put(`${API_URL}/api/employees/${selectedEmployee.id}`, editEmployeeData);
       if (res.data.success && res.data.employee) {
         const freshEmp = res.data.employee;
-        setEmployees(prev => prev.map(e => e._id === freshEmp._id ? freshEmp : e)); setSelectedEmployee(freshEmp);
+        setEmployees(prev => prev.map(e => e.id === freshEmp.id ? freshEmp : e)); setSelectedEmployee(freshEmp);
         if (user && freshEmp.email === user.email) setUser(prev => ({ ...prev, ...freshEmp, picture: freshEmp.profilePicture || prev.picture }));
         setIsEditingEmployee(false); setStatusMsg({ type: 'success', text: `Data ${freshEmp.name} berhasil disinkronkan!` }); setTimeout(() => setStatusMsg(null), 3000); fetchEmployees();
       }
@@ -421,7 +437,7 @@ function App() {
   const handleDeleteEmployee = async () => {
     if (!selectedEmployee || !window.confirm(`Apakah Anda yakin ingin menghapus ${selectedEmployee.name}?`)) return;
     setIsSavingEmployee(true);
-    try { const res = await axios.delete(`${API_URL}/api/employees/${selectedEmployee._id}`); if (res.data.success) { setIsEditingEmployee(false); setSelectedEmployee(null); fetchEmployees(); setStatusMsg({ type: 'success', text: 'Karyawan berhasil dihapus!' }); setTimeout(() => setStatusMsg(null), 3000); } }
+    try { const res = await axios.delete(`${API_URL}/api/employees/${selectedEmployee.id}`); if (res.data.success) { setIsEditingEmployee(false); setSelectedEmployee(null); fetchEmployees(); setStatusMsg({ type: 'success', text: 'Karyawan berhasil dihapus!' }); setTimeout(() => setStatusMsg(null), 3000); } }
     catch (err) { console.error('Error deleting employee:', err); }
     finally { setIsSavingEmployee(false); }
   };
@@ -455,9 +471,9 @@ function App() {
 
       if (res.data.success && res.data.employee) {
         const freshEmp = res.data.employee;
-        setEmployees(prev => prev.map(e => e._id === freshEmp._id ? freshEmp : e));
+        setEmployees(prev => prev.map(e => e.id === freshEmp.id ? freshEmp : e));
         if (user && freshEmp.email === user.email) setUser(prev => ({ ...prev, ...freshEmp, picture: freshEmp.profilePicture || prev.picture }));
-        if (selectedEmployee && freshEmp._id === selectedEmployee._id) setSelectedEmployee(freshEmp);
+        if (selectedEmployee && freshEmp.id === selectedEmployee.id) setSelectedEmployee(freshEmp);
         setIsEditingPayroll(false); setStatusMsg({ type: 'success', text: `Payroll & Kontrak ${freshEmp.name} berhasil diperbarui!` }); setTimeout(() => setStatusMsg(null), 3000); fetchEmployees();
       }
     } catch (err) { console.error('Error saving payroll:', err); setStatusMsg({ type: 'error', text: 'Gagal memperbarui payroll.' }); }
@@ -670,9 +686,13 @@ function App() {
         {activeMenu === 'attendance' && activeSubMenu === 'att-report' && user?.role !== 'employee' && (
           <AttendanceReport user={user} monthlyReports={monthlyReports} isFetchingReports={isFetchingReports} reportMonth={reportMonth} setReportMonth={setReportMonth} reportYear={reportYear} setReportYear={setReportYear} fetchMonthlyReports={fetchMonthlyReports} />
         )}
+        {activeMenu === 'attendance' && activeSubMenu === 'att-daily' && user?.role !== 'employee' && (
+          <DailyReport dailyReports={dailyReports} isFetchingDaily={isFetchingDaily} dailyDate={dailyDate} setDailyDate={setDailyDate} fetchDailyReports={fetchDailyReports} />
+        )}
       </main>
 
-      {/* Floating Clock Button */}
+      {/* Floating Clock Button & Mobile Bottom Bar */}
+      <div className="mobile-bottom-nav"></div>
       <button className={`fab-clock ${isClockedIn ? 'is-in' : 'is-out'}`} onClick={handleFabClick} disabled={clockLoading}>
         <span className="material-icons-outlined">{clockLoading ? 'sync' : (isClockedIn ? 'logout' : 'login')}</span>
       </button>

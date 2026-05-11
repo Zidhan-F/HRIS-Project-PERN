@@ -50,7 +50,7 @@ export default function LeaveView({
                     <thead><tr><th>Type</th><th>Date</th><th>Reason</th><th>Status</th></tr></thead>
                     <tbody>
                       {requests.map(req => (
-                        <tr key={req._id}>
+                        <tr key={req.id}>
                           <td><strong>{req.type}</strong></td>
                           <td>{req.startDate ? new Date(req.startDate).toLocaleDateString() : '-'}</td>
                           <td><p className="reason-cell">{req.reason}</p></td>
@@ -78,7 +78,7 @@ export default function LeaveView({
           {pendingRequests.length === 0 ? <div className="empty-state">No pending approvals.</div> : (
             <div className="approval-cards">
               {pendingRequests.map(req => (
-                <div key={req._id} className="approval-card">
+                <div key={req.id} className="approval-card">
                   <div className="approve-header">
                     <div className="approve-user">
                       <div className="approve-avatar">
@@ -98,9 +98,9 @@ export default function LeaveView({
                     {req.amount && <p><strong>Amount:</strong> {formatCurrency(req.amount)}</p>}
                   </div>
                   <div className="approve-footer">
-                    <button className="btn-reject" onClick={() => handleApproveRequest(req._id, 'Rejected')}>Reject</button>
-                    <button className="btn-return" onClick={() => handleApproveRequest(req._id, 'Returned')}>Return</button>
-                    <button className="btn-approve" onClick={() => handleApproveRequest(req._id, 'Approved')}>Approve</button>
+                    <button className="btn-reject" onClick={() => handleApproveRequest(req.id, 'Rejected')}>Reject</button>
+                    <button className="btn-return" onClick={() => handleApproveRequest(req.id, 'Returned')}>Return</button>
+                    <button className="btn-approve" onClick={() => handleApproveRequest(req.id, 'Approved')}>Approve</button>
                   </div>
                 </div>
               ))}

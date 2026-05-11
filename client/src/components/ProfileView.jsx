@@ -38,7 +38,7 @@ export default function ProfileView({ user, profileTab, setProfileTab, handleSta
               <p className="profile-bio-text">{user.bio || 'No bio provided.'}</p>
             </div>
             <div className="profile-info-grid">
-              <div className="profile-info-item"><span className="profile-info-label">Employee ID</span><span className="badge-id">{user.employeeId || `EMS-${user._id?.substring(0, 4).toUpperCase() || 'NEW'}`}</span></div>
+              <div className="profile-info-item"><span className="profile-info-label">Employee ID</span><span className="badge-id">{user.employeeId || `EMS-${String(user.id).padStart(3, '0')}`}</span></div>
               <div className="profile-info-item"><span className="profile-info-label">Role</span><span className="status-pill approved" style={{ textTransform: 'capitalize' }}>{user.role}</span></div>
               <div className="profile-info-item"><span className="profile-info-label">Email</span><span className="profile-info-value">{user.email}</span></div>
               <div className="profile-info-item"><span className="profile-info-label">Phone</span><span className="profile-info-value">{user.phone || '-'}</span></div>
@@ -55,7 +55,7 @@ export default function ProfileView({ user, profileTab, setProfileTab, handleSta
           <div className="profile-card">
             <div className="profile-section-header">Employment Details</div>
             <div className="profile-info-grid">
-              <div className="profile-info-item"><span className="profile-info-label">Employee ID</span><span className="badge-id">{user.employeeId || `EMS-${user._id?.substring(0, 4).toUpperCase() || 'NEW'}`}</span></div>
+              <div className="profile-info-item"><span className="profile-info-label">Employee ID</span><span className="badge-id">{user.employeeId || `EMS-${String(user.id).padStart(3, '0')}`}</span></div>
               <div className="profile-info-item"><span className="profile-info-label">Employment Status</span><span className="profile-info-value">{user.employmentStatus || 'Probation'}</span></div>
               <div className="profile-info-item"><span className="profile-info-label">Join Date</span><span className="profile-info-value">{user.joinDate ? new Date(user.joinDate).toLocaleDateString() : '-'}</span></div>
               <div className="profile-info-item">

@@ -95,7 +95,7 @@ export default function Dashboard({
               onLeaveToday.map((item, idx) => {
                 const iconData = getRequestIcon(item.type);
                 return (
-                  <div key={item._id || idx} className="feed-card-item">
+                  <div key={item.id || idx} className="feed-card-item">
                     <div className="feed-card-item-avatar">
                       {item.profilePicture ? (
                         <img src={item.profilePicture} alt="" referrerPolicy="no-referrer" />
@@ -238,10 +238,10 @@ export default function Dashboard({
                 <thead><tr><th>Time</th><th>Type</th><th>Location</th></tr></thead>
                 <tbody>
                   {history.slice(0, 5).map((h, i) => (
-                    <tr key={i}>
+                    <tr key={h.id || i}>
                       <td>{formatTimestamp(h.timestamp)}</td>
                       <td><span className={`type-badge ${h.type === 'clock_in' ? 'clock-in' : 'clock-out'}`}>{h.type === 'clock_in' ? 'In' : 'Out'}</span></td>
-                      <td>{h.latitude?.toFixed(4)}, {h.longitude?.toFixed(4)}</td>
+                      <td>{Number(h.latitude || 0).toFixed(4)}, {Number(h.longitude || 0).toFixed(4)}</td>
                     </tr>
                   ))}
                 </tbody>

@@ -35,7 +35,8 @@ export const MENU_ITEMS = [
     submenus: [
       { id: 'att-personal', label: 'Personal' },
       { id: 'att-schedule', label: 'Schedule' },
-      { id: 'att-report', label: 'Monthly Report' }
+      { id: 'att-report', label: 'Monthly Report' },
+      { id: 'att-daily', label: 'Daily Report' }
     ]
   },
   { id: 'payroll', label: 'Payroll', icon: 'account_balance_wallet', hasSubmenu: false },

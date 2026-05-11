@@ -1,20 +1,49 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const sequelize = require('../db');
 
-const payrollSettingsSchema = new mongoose.Schema({
-    // Global Rates
-    latePenaltyPerDay: { type: Number, default: 50000 },
-    overtimeRatePerHour: { type: Number, default: 30000 },
-    
-    // Configurations
-    workHoursStart: { type: Number, default: 9.25 }, // 09:15
-    overtimeStart: { type: Number, default: 18 },  // 18:00
-    workingDaysPerMonth: { type: Number, default: 22 },
-    
-    updatedAt: { type: Date, default: Date.now },
-    updatedBy: { type: String }
+const PayrollSettings = sequelize.define('PayrollSettings', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true,
+  },
+  latePenaltyPerDay: {
+    type: DataTypes.DECIMAL(15, 2),
+    defaultValue: 50000,
+    field: 'late_penalty_per_day',
+  },
+  overtimeRatePerHour: {
+    type: DataTypes.DECIMAL(15, 2),
+    defaultValue: 30000,
+    field: 'overtime_rate_per_hour',
+  },
+  workHoursStart: {
+    type: DataTypes.DECIMAL(5, 2),
+    defaultValue: 9.25, // 09:15
+    field: 'work_hours_start',
+  },
+  overtimeStart: {
+    type: DataTypes.DECIMAL(5, 2),
+    defaultValue: 18, // 18:00
+    field: 'overtime_start',
+  },
+  workingDaysPerMonth: {
+    type: DataTypes.INTEGER,
+    defaultValue: 22,
+    field: 'working_days_per_month',
+  },
+  updatedAt: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW,
+    field: 'updated_at',
+  },
+  updatedBy: {
+    type: DataTypes.STRING,
+    field: 'updated_by',
+  },
+}, {
+  tableName: 'payroll_settings',
+  timestamps: false,
 });
 
-// Since this is a global configuration, we usually only have ONE record.
-// We'll enforce this by always using a specific ID or findOne.
-
-module.exports = mongoose.model('PayrollSettings', payrollSettingsSchema);
+module.exports = PayrollSettings;

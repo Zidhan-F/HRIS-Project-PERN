@@ -24,7 +24,7 @@ export default function EmployeeView({
             <div className="employee-grid">
               {employees.filter(e => e.name.toLowerCase().includes(searchQuery.toLowerCase()) || e.position.toLowerCase().includes(searchQuery.toLowerCase())).map(emp => (
                 <div 
-                  key={emp._id} 
+                  key={emp.id} 
                   className={`employee-card ${user?.role === 'employee' ? 'restricted-card' : ''}`}
                   onClick={() => user?.role !== 'employee' && setSelectedEmployee(emp)} 
                   style={{ cursor: user?.role === 'employee' ? 'default' : 'pointer' }}
@@ -35,7 +35,7 @@ export default function EmployeeView({
                     <p>{emp.position}</p>
                     <div className="employee-card-details">
                       <span className="employee-card-dept"><span className="material-icons-outlined">apartment</span>{emp.department || 'General'}</span>
-                      <span className="employee-card-id"><span className="material-icons-outlined">badge</span>{emp.employeeId || `EMS-${emp._id?.substring(0, 4).toUpperCase() || 'NEW'}`}</span>
+                      <span className="employee-card-id"><span className="material-icons-outlined">badge</span>{emp.employeeId || `EMS-${String(emp.id).padStart(3, '0')}`}</span>
                       {emp.contractEnd && user?.role !== 'employee' && (
                         <span className="employee-card-contract" style={{ color: new Date(emp.contractEnd) < new Date() ? '#ef4444' : '#64748b' }}>
                           <span className="material-icons-outlined">event_busy</span>{new Date(emp.contractEnd).toLocaleDateString()}
@@ -99,7 +99,7 @@ export default function EmployeeView({
                   <p className="profile-bio-text">{selectedEmployee.bio || 'No bio provided.'}</p>
                 </div>
                 <div className="profile-info-grid">
-                  <div className="profile-info-item"><span className="profile-info-label">Employee ID</span><span className="badge-id">{selectedEmployee.employeeId || `EMS-${selectedEmployee._id?.substring(0, 4).toUpperCase() || 'NEW'}`}</span></div>
+                  <div className="profile-info-item"><span className="profile-info-label">Employee ID</span><span className="badge-id">{selectedEmployee.employeeId || `EMS-${String(selectedEmployee.id).padStart(3, '0')}`}</span></div>
                   <div className="profile-info-item"><span className="profile-info-label">Role</span><span className="status-pill approved" style={{ textTransform: 'capitalize' }}>{selectedEmployee.role}</span></div>
                   <div className="profile-info-item"><span className="profile-info-label">Email</span><span className="profile-info-value">{selectedEmployee.email}</span></div>
                   <div className="profile-info-item"><span className="profile-info-label">Phone</span><span className="profile-info-value">{selectedEmployee.phone || '-'}</span></div>
@@ -116,7 +116,7 @@ export default function EmployeeView({
               <div className="profile-card">
                 <div className="profile-section-header">Employment Details</div>
                 <div className="profile-info-grid">
-                  <div className="profile-info-item"><span className="profile-info-label">Employee ID</span><span className="badge-id">{selectedEmployee.employeeId || `EMS-${selectedEmployee._id?.substring(0, 4).toUpperCase() || 'NEW'}`}</span></div>
+                  <div className="profile-info-item"><span className="profile-info-label">Employee ID</span><span className="badge-id">{selectedEmployee.employeeId || `EMS-${String(selectedEmployee.id).padStart(3, '0')}`}</span></div>
                   <div className="profile-info-item"><span className="profile-info-label">Employment Status</span><span className="profile-info-value">{selectedEmployee.employmentStatus || 'Full-time'}</span></div>
                   <div className="profile-info-item"><span className="profile-info-label">Join Date</span><span className="profile-info-value">{selectedEmployee.joinDate ? new Date(selectedEmployee.joinDate).toLocaleDateString() : '-'}</span></div>
                   <div className="profile-info-item">

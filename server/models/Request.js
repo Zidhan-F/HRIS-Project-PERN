@@ -1,26 +1,65 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const sequelize = require('../db');
 
-const requestSchema = new mongoose.Schema({
-  email: { type: String, required: true },
-  name: { type: String, required: true },
-  type: { 
-    type: String, 
-    enum: ['Leave', 'Permit', 'Sick', 'Overtime', 'Reimbursement', 'Timesheet', 'Expense', 'Other'],
-    required: true 
+const Request = sequelize.define('Request', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true,
   },
-  startDate: { type: Date },
-  endDate: { type: Date },
-  reason: { type: String, required: true },
-  amount: { type: Number }, // For Reimbursement/Expense
-  status: { 
-    type: String, 
-    enum: ['Pending', 'Approved', 'Rejected', 'Returned'], 
-    default: 'Pending' 
+  userId: {
+    type: DataTypes.INTEGER,
+    field: 'user_id',
+    references: { model: 'users', key: 'id' },
   },
-  unpaidDays: { type: Number, default: 0 },
-  isUnpaid: { type: Boolean, default: false },
-  timestamp: { type: Date, default: Date.now }
-
+  email: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  name: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  type: {
+    type: DataTypes.ENUM('Leave', 'Permit', 'Sick', 'Overtime', 'Reimbursement', 'Timesheet', 'Expense', 'Other'),
+    allowNull: false,
+  },
+  startDate: {
+    type: DataTypes.DATE,
+    field: 'start_date',
+  },
+  endDate: {
+    type: DataTypes.DATE,
+    field: 'end_date',
+  },
+  reason: {
+    type: DataTypes.TEXT,
+    allowNull: false,
+  },
+  amount: {
+    type: DataTypes.DECIMAL(15, 2),
+  },
+  status: {
+    type: DataTypes.ENUM('Pending', 'Approved', 'Rejected', 'Returned'),
+    defaultValue: 'Pending',
+  },
+  unpaidDays: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0,
+    field: 'unpaid_days',
+  },
+  isUnpaid: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    field: 'is_unpaid',
+  },
+  timestamp: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW,
+  },
+}, {
+  tableName: 'requests',
+  timestamps: false,
 });
 
-module.exports = mongoose.model('Request', requestSchema);
+module.exports = Request;

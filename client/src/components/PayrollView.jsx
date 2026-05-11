@@ -150,7 +150,7 @@ export default function PayrollView({
     const ptkpVal = emp.ptkpStatus || 'TK/0';
     
     setEditPayrollData({
-      id: emp._id,
+      id: emp.id,
       name: emp.name,
       baseSalary: baseVal,
       allowance: emp.allowance || 0,
@@ -207,8 +207,8 @@ export default function PayrollView({
               </div>
               <div className="payroll-hero-actions">
                 <span className={`payroll-status-badge-lg ${p.status?.toLowerCase()}`}>{p.status}</span>
-                {p._id && (
-                  <button className="btn-download-pdf" onClick={() => handleDownloadPDF?.(p._id)}>
+                {p.id && (
+                  <button className="btn-download-pdf" onClick={() => handleDownloadPDF?.(p.id)}>
                     <span className="material-icons-outlined">picture_as_pdf</span> Download PDF
                   </button>
                 )}
@@ -274,17 +274,17 @@ export default function PayrollView({
                 <h4><span className="material-icons-outlined">history</span> Riwayat Payslip</h4>
                 <div className="payroll-history-list">
                   {myPayslipHistory.map(h => (
-                    <div key={h._id} className={`payroll-history-item ${showHistoryDetail === h._id ? 'expanded' : ''}`}
-                      onClick={() => setShowHistoryDetail(showHistoryDetail === h._id ? null : h._id)}>
+                    <div key={h.id} className={`payroll-history-item ${showHistoryDetail === h.id ? 'expanded' : ''}`}
+                      onClick={() => setShowHistoryDetail(showHistoryDetail === h.id ? null : h.id)}>
                       <div className="ph-main">
                         <div className="ph-period">{MONTH_NAMES[h.period.month]} {h.period.year}</div>
                         <div className="ph-amount">{formatCurrency(h.netPay)}</div>
                         <span className={`payroll-status-mini ${h.status?.toLowerCase()}`}>{h.status}</span>
-                        {h._id && <button className="ph-pdf-btn" onClick={(e) => { e.stopPropagation(); handleDownloadPDF?.(h._id); }}>
+                        {h.id && <button className="ph-pdf-btn" onClick={(e) => { e.stopPropagation(); handleDownloadPDF?.(h.id); }}>
                           <span className="material-icons-outlined">download</span>
                         </button>}
                       </div>
-                      {showHistoryDetail === h._id && (
+                      {showHistoryDetail === h.id && (
                         <div className="ph-detail">
                           <span>Gaji Pokok: {formatCurrency(h.baseSalary)}</span>
                           <span>Lembur: {formatCurrency(h.overtimePay)}</span>
@@ -310,7 +310,7 @@ export default function PayrollView({
 
     const handleSelectAll = (e) => {
       if (e.target.checked) {
-        setSelectedIds(filtered.map(r => r._id));
+        setSelectedIds(filtered.map(r => r.id));
       } else {
         setSelectedIds([]);
       }
@@ -347,7 +347,7 @@ export default function PayrollView({
             <button className="payroll-action-btn warning" onClick={() => { handleMarkAllPaid?.(selectedIds); setSelectedIds([]); }}>
               <span className="material-icons-outlined">paid</span>
               {selectedIds.length > 0 
-                ? `Mark Paid (${records.filter(r => selectedIds.includes(r._id) && r.status === 'Finalized').length})` 
+                ? `Mark Paid (${records.filter(r => selectedIds.includes(r.id) && r.status === 'Finalized').length})` 
                 : 'Mark All Paid'}
             </button>
             <button className="payroll-action-btn error-outline" onClick={() => { handleMarkAllUnpaid?.(selectedIds); setSelectedIds([]); }} style={{ border: '1px solid #ef4444', color: '#ef4444', background: 'transparent' }}>
@@ -479,14 +479,14 @@ export default function PayrollView({
 
               <tbody>
                 {filtered.map(r => (
-                  <React.Fragment key={r._id}>
-                    <tr className={`payroll-table-row ${expandedRow === r._id ? 'expanded' : ''} ${selectedIds.includes(r._id) ? 'selected' : ''}`}
-                      onClick={() => setExpandedRow(expandedRow === r._id ? null : r._id)}
+                  <React.Fragment key={r.id}>
+                    <tr className={`payroll-table-row ${expandedRow === r.id ? 'expanded' : ''} ${selectedIds.includes(r.id) ? 'selected' : ''}`}
+                      onClick={() => setExpandedRow(expandedRow === r.id ? null : r.id)}
                       style={{ cursor: 'pointer' }}>
                       <td className="col-selection" onClick={e => e.stopPropagation()}>
                         <input type="checkbox" 
-                          checked={selectedIds.includes(r._id)}
-                          onChange={(e) => handleSelectRow(e, r._id)}
+                          checked={selectedIds.includes(r.id)}
+                          onChange={(e) => handleSelectRow(e, r.id)}
                         />
                       </td>
                       <td className="col-karyawan" style={{ verticalAlign: 'middle' }}>
@@ -519,29 +519,29 @@ export default function PayrollView({
                       <td className="col-actions" style={{ textAlign: 'right' }}>
                         <div className="payroll-row-actions" onClick={e => e.stopPropagation()}>
                           {r.status === 'Draft' && (
-                            <button className="pr-action-btn warning" title="Finalize" onClick={() => handleFinalize?.(r._id)} style={{ color: '#f59e0b' }}>
+                            <button className="pr-action-btn warning" title="Finalize" onClick={() => handleFinalize?.(r.id)} style={{ color: '#f59e0b' }}>
                               <span className="material-icons-outlined">verified</span>
                             </button>
                           )}
                           {r.status === 'Finalized' && (
-                            <button className="pr-action-btn paid" title="Mark Paid" onClick={() => handleMarkPaid?.(r._id)}>
+                            <button className="pr-action-btn paid" title="Mark Paid" onClick={() => handleMarkPaid?.(r.id)}>
                               <span className="material-icons-outlined">paid</span>
                             </button>
                           )}
                           {(r.status === 'Paid' || r.status === 'Finalized') && (
-                            <button className="pr-action-btn undo" title="Revert to Draft" onClick={() => handleMarkUnpaid?.(r._id)} style={{ color: '#ef4444' }}>
+                            <button className="pr-action-btn undo" title="Revert to Draft" onClick={() => handleMarkUnpaid?.(r.id)} style={{ color: '#ef4444' }}>
                               <span className="material-icons-outlined">undo</span>
                             </button>
                           )}
 
-                          <button className="pr-action-btn pdf" title="Download PDF" onClick={() => handleDownloadPDF?.(r._id)}>
+                          <button className="pr-action-btn pdf" title="Download PDF" onClick={() => handleDownloadPDF?.(r.id)}>
                             <span className="material-icons-outlined">picture_as_pdf</span>
                           </button>
                         </div>
                       </td>
                     </tr>
                     {/* Expanded Detail Row */}
-                    {expandedRow === r._id && (
+                    {expandedRow === r.id && (
                       <tr className="payroll-detail-row">
                         <td colSpan="8">
                           <div className="payroll-detail-content animate-fadeInUp">
@@ -654,7 +654,7 @@ export default function PayrollView({
               </thead>
               <tbody>
                 {filtered.map(emp => (
-                  <tr key={emp._id}>
+                  <tr key={emp.id}>
                     <td className="col-karyawan">
                       <div className="employee-cell-main">
                         <div className="member-avatar-mini">

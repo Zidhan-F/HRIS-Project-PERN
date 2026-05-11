@@ -1,18 +1,28 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const sequelize = require('../db');
 
-const settingsSchema = new mongoose.Schema({
-    key: { 
-        type: String, 
-        unique: true, 
-        required: true 
-    },
-    value: mongoose.Schema.Types.Mixed,
-    updatedAt: { 
-        type: Date, 
-        default: Date.now 
-    }
-}, { 
-    collection: 'settings' // Explicit collection name to avoid pluralization issues
+const Settings = sequelize.define('Settings', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true,
+  },
+  key: {
+    type: DataTypes.STRING,
+    unique: true,
+    allowNull: false,
+  },
+  value: {
+    type: DataTypes.JSONB, // Replaces Mongoose Mixed type
+  },
+  updatedAt: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW,
+    field: 'updated_at',
+  },
+}, {
+  tableName: 'settings',
+  timestamps: false,
 });
 
-module.exports = mongoose.model('Settings', settingsSchema);
+module.exports = Settings;

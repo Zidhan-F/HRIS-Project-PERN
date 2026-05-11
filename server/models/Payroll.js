@@ -1,85 +1,131 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const sequelize = require('../db');
 
-const payrollSchema = new mongoose.Schema({
-  employeeId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  email: { type: String, required: true },
-  name: { type: String, required: true },
-  position: { type: String, default: 'Staff' },
-  department: { type: String, default: 'General' },
-  employeeCode: { type: String, default: 'EMS-000' },
-  bankAccount: { type: String, default: '-' },
-  bankName: { type: String, default: '-' },
-  profilePicture: { type: String },
+const Payroll = sequelize.define('Payroll', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true,
+  },
+  employeeId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    field: 'employee_id',
+    references: { model: 'users', key: 'id' },
+  },
+  email: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  name: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  position: {
+    type: DataTypes.STRING,
+    defaultValue: 'Staff',
+  },
+  department: {
+    type: DataTypes.STRING,
+    defaultValue: 'General',
+  },
+  employeeCode: {
+    type: DataTypes.STRING,
+    defaultValue: 'EMS-000',
+    field: 'employee_code',
+  },
+  bankAccount: {
+    type: DataTypes.STRING,
+    defaultValue: '-',
+    field: 'bank_account',
+  },
+  bankName: {
+    type: DataTypes.STRING,
+    defaultValue: '-',
+    field: 'bank_name',
+  },
+  profilePicture: {
+    type: DataTypes.TEXT,
+    field: 'profile_picture',
+  },
 
-
-  // Period
-  period: {
-    month: { type: Number, required: true }, // 0-11
-    year: { type: Number, required: true }
+  // Period (flattened from nested object)
+  periodMonth: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    field: 'period_month',
+  },
+  periodYear: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    field: 'period_year',
   },
 
   // === KOMPONEN PENDAPATAN ===
-  baseSalary: { type: Number, default: 0 },
-  overtimePay: { type: Number, default: 0 },
-  overtimeHours: { type: Number, default: 0 },
-  mealAllowance: { type: Number, default: 0 },
-  transportAllowance: { type: Number, default: 0 },
-  reimbursement: { type: Number, default: 0 },
-  otherAllowance: { type: Number, default: 0 },
+  baseSalary: { type: DataTypes.DECIMAL(15, 2), defaultValue: 0, field: 'base_salary' },
+  overtimePay: { type: DataTypes.DECIMAL(15, 2), defaultValue: 0, field: 'overtime_pay' },
+  overtimeHours: { type: DataTypes.DECIMAL(10, 1), defaultValue: 0, field: 'overtime_hours' },
+  mealAllowance: { type: DataTypes.DECIMAL(15, 2), defaultValue: 0, field: 'meal_allowance' },
+  transportAllowance: { type: DataTypes.DECIMAL(15, 2), defaultValue: 0, field: 'transport_allowance' },
+  reimbursement: { type: DataTypes.DECIMAL(15, 2), defaultValue: 0 },
+  otherAllowance: { type: DataTypes.DECIMAL(15, 2), defaultValue: 0, field: 'other_allowance' },
 
   // === KOMPONEN POTONGAN ===
-  latePenalty: { type: Number, default: 0 },
-  lateDays: { type: Number, default: 0 },
-  unpaidLeaveDays: { type: Number, default: 0 },
-  unpaidLeaveDeduction: { type: Number, default: 0 },
-  bpjsKesehatan: { type: Number, default: 0 },
-  bpjsKetenagakerjaan: { type: Number, default: 0 },
-  pph21: { type: Number, default: 0 },
+  latePenalty: { type: DataTypes.DECIMAL(15, 2), defaultValue: 0, field: 'late_penalty' },
+  lateDays: { type: DataTypes.INTEGER, defaultValue: 0, field: 'late_days' },
+  unpaidLeaveDays: { type: DataTypes.INTEGER, defaultValue: 0, field: 'unpaid_leave_days' },
+  unpaidLeaveDeduction: { type: DataTypes.DECIMAL(15, 2), defaultValue: 0, field: 'unpaid_leave_deduction' },
+  bpjsKesehatan: { type: DataTypes.DECIMAL(15, 2), defaultValue: 0, field: 'bpjs_kesehatan' },
+  bpjsKetenagakerjaan: { type: DataTypes.DECIMAL(15, 2), defaultValue: 0, field: 'bpjs_ketenagakerjaan' },
+  pph21: { type: DataTypes.DECIMAL(15, 2), defaultValue: 0 },
 
   // === SUMMARY ===
-  grossPay: { type: Number, default: 0 },
-  totalDeductions: { type: Number, default: 0 },
-  netPay: { type: Number, default: 0 },
+  grossPay: { type: DataTypes.DECIMAL(15, 2), defaultValue: 0, field: 'gross_pay' },
+  totalDeductions: { type: DataTypes.DECIMAL(15, 2), defaultValue: 0, field: 'total_deductions' },
+  netPay: { type: DataTypes.DECIMAL(15, 2), defaultValue: 0, field: 'net_pay' },
 
   // === RATES USED (Historical Accuracy) ===
-  overtimeRatePerHour: { type: Number },
-  mealAllowanceRate: { type: Number },
-  transportAllowanceRate: { type: Number },
-  latePenaltyPerDay: { type: Number },
-  bpjsKesehatanRate: { type: Number },
-  bpjsKetenagakerjaanRate: { type: Number },
+  overtimeRatePerHour: { type: DataTypes.DECIMAL(15, 2), field: 'overtime_rate_per_hour' },
+  mealAllowanceRate: { type: DataTypes.DECIMAL(15, 2), field: 'meal_allowance_rate' },
+  transportAllowanceRate: { type: DataTypes.DECIMAL(15, 2), field: 'transport_allowance_rate' },
+  latePenaltyPerDay: { type: DataTypes.DECIMAL(15, 2), field: 'late_penalty_per_day' },
+  bpjsKesehatanRate: { type: DataTypes.DECIMAL(5, 4), field: 'bpjs_kesehatan_rate' },
+  bpjsKetenagakerjaanRate: { type: DataTypes.DECIMAL(5, 4), field: 'bpjs_ketenagakerjaan_rate' },
 
-  // === ATTENDANCE SUMMARY ===
-  attendanceSummary: {
-    daysPresent: { type: Number, default: 0 },
-    daysLate: { type: Number, default: 0 },
-    overtimeHours: { type: Number, default: 0 },
-    totalWorkHours: { type: Number, default: 0 }
-  },
+  // === ATTENDANCE SUMMARY (flattened) ===
+  daysPresent: { type: DataTypes.INTEGER, defaultValue: 0, field: 'days_present' },
+  daysLateAtt: { type: DataTypes.INTEGER, defaultValue: 0, field: 'days_late_att' },
+  overtimeHoursAtt: { type: DataTypes.DECIMAL(10, 1), defaultValue: 0, field: 'overtime_hours_att' },
+  totalWorkHours: { type: DataTypes.DECIMAL(10, 1), defaultValue: 0, field: 'total_work_hours' },
 
   // === TAX INFO ===
-  ptkpStatus: { type: String, default: 'TK/0' },
-  ptkpAmount: { type: Number, default: 54000000 },
-  taxableIncomeYearly: { type: Number, default: 0 },
+  ptkpStatus: { type: DataTypes.STRING, defaultValue: 'TK/0', field: 'ptkp_status' },
+  ptkpAmount: { type: DataTypes.DECIMAL(15, 2), defaultValue: 54000000, field: 'ptkp_amount' },
+  taxableIncomeYearly: { type: DataTypes.DECIMAL(15, 2), defaultValue: 0, field: 'taxable_income_yearly' },
 
   // === STATUS ===
   status: {
-    type: String,
-    enum: ['Draft', 'Finalized', 'Paid'],
-    default: 'Draft'
+    type: DataTypes.ENUM('Draft', 'Finalized', 'Paid'),
+    defaultValue: 'Draft',
   },
 
   // === METADATA ===
-  emailSent: { type: Boolean, default: false },
-  emailSentAt: { type: Date },
-  calculatedAt: { type: Date, default: Date.now },
-  calculatedBy: { type: String, default: 'system' },
-
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now }
+  emailSent: { type: DataTypes.BOOLEAN, defaultValue: false, field: 'email_sent' },
+  emailSentAt: { type: DataTypes.DATE, field: 'email_sent_at' },
+  calculatedAt: { type: DataTypes.DATE, defaultValue: DataTypes.NOW, field: 'calculated_at' },
+  calculatedBy: { type: DataTypes.STRING, defaultValue: 'system', field: 'calculated_by' },
+  createdAt: { type: DataTypes.DATE, defaultValue: DataTypes.NOW, field: 'created_at' },
+  updatedAt: { type: DataTypes.DATE, defaultValue: DataTypes.NOW, field: 'updated_at' },
+}, {
+  tableName: 'payrolls',
+  timestamps: false,
+  indexes: [
+    {
+      unique: true,
+      fields: ['employee_id', 'period_month', 'period_year'],
+      name: 'payrolls_employee_period_unique',
+    },
+  ],
 });
 
-// Compound index: one payroll record per employee per period
-payrollSchema.index({ employeeId: 1, 'period.month': 1, 'period.year': 1 }, { unique: true });
-
-module.exports = mongoose.model('Payroll', payrollSchema);
+module.exports = Payroll;

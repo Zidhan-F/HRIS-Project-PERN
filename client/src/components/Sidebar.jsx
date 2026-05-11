@@ -21,7 +21,7 @@ export default function Sidebar({ sidebarOpen, sidebarClosing, closeSidebar, act
             {item.hasSubmenu && expandedMenu === item.id && item.submenus && (
               <div className="sidebar-submenus">
                 {item.submenus
-                  .filter(sub => !(sub.id === 'att-report' && user?.role === 'employee'))
+                  .filter(sub => !(['att-report', 'att-daily'].includes(sub.id) && user?.role === 'employee'))
                   .map(sub => (
                     <button key={sub.id} className={`sidebar-submenu-item ${activeSubMenu === sub.id ? 'active' : ''}`} onClick={() => handleSubMenuClick(item.id, sub.id)}>{sub.label}</button>
                   ))}
