@@ -19,13 +19,19 @@ const PayrollSettings = sequelize.define('PayrollSettings', {
   },
   workHoursStart: {
     type: DataTypes.DECIMAL(5, 2),
-    defaultValue: 9.25, // 09:15
+    defaultValue: 9.25,
     field: 'work_hours_start',
   },
   overtimeStart: {
     type: DataTypes.DECIMAL(5, 2),
-    defaultValue: 18, // 18:00
+    defaultValue: 18,
     field: 'overtime_start',
+  },
+  payday: {
+    type: DataTypes.INTEGER,
+    defaultValue: 25,
+    field: 'payday',
+    validate: { min: 1, max: 28 },
   },
   workingDaysPerMonth: {
     type: DataTypes.INTEGER,
@@ -44,6 +50,12 @@ const PayrollSettings = sequelize.define('PayrollSettings', {
 }, {
   tableName: 'payroll_settings',
   timestamps: false,
+  indexes: [
+    {
+      unique: true,
+      fields: ['company_id'],
+    },
+  ],
 });
 
 module.exports = PayrollSettings;

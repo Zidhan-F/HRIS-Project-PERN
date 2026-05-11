@@ -9,11 +9,10 @@ const Settings = sequelize.define('Settings', {
   },
   key: {
     type: DataTypes.STRING,
-    unique: true,
     allowNull: false,
   },
   value: {
-    type: DataTypes.JSONB, // Replaces Mongoose Mixed type
+    type: DataTypes.JSONB,
   },
   updatedAt: {
     type: DataTypes.DATE,
@@ -23,6 +22,12 @@ const Settings = sequelize.define('Settings', {
 }, {
   tableName: 'settings',
   timestamps: false,
+  indexes: [
+    {
+      unique: true,
+      fields: ['company_id', 'key'],
+    },
+  ],
 });
 
 module.exports = Settings;

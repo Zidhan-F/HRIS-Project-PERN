@@ -1,20 +1,29 @@
 const express = require('express');
 const router = express.Router();
 const { Settings, PayrollSettings } = require('../models');
-const { authMiddleware, requireRole } = require('../middleware/auth');
+const { authMiddleware, requireRole, requireCompany } = require('../middleware/auth');
 const { RATES } = require('../services/payrollEngine');
 
-// GET Office Settings
-router.get('/office', authMiddleware, async (req, res) => {
+// GET Office Settings (per-company)
+router.get('/office', authMiddleware, requireCompany, async (req, res) => {
   try {
-    const setting = await Settings.findOne({ where: { key: 'office_location' } });
-    if (!setting) return res.json({ success: true, data: { lat: -6.1528, lng: 106.7909, radius: 100, name: 'EMS Office' } });
+    const companyId = req.user.role === 'super_admin' ? (req.query.companyId ? parseInt(req.query.companyId) : null) : req.user.companyId;
+
+    // Try company-specific, then global fallback
+    let setting = null;
+    if (companyId) {
+      setting = await Settings.findOne({ where: { key: 'office_location', companyId } });
+    }
+    if (!setting) {
+      setting = await Settings.findOne({ where: { key: 'office_location', companyId: null } });
+    }
+    if (!setting) return res.json({ success: true, data: { lat: -6.1528, lng: 106.7909, radius: 100, name: 'Office' } });
     res.json({ success: true, data: setting.value });
   } catch (error) { res.status(500).json({ success: false, message: 'Failed to get settings.' }); }
 });
 
-// PUT Office Settings
-router.put('/office', authMiddleware, requireRole('admin', 'hrd'), async (req, res) => {
+// PUT Office Settings (per-company)
+router.put('/office', authMiddleware, requireCompany, requireRole('super_admin', 'admin', 'hrd'), async (req, res) => {
   try {
     const { lat, lng, radius, name } = req.body;
     const parsedLat = parseFloat(lat), parsedLng = parseFloat(lng), parsedRadius = parseInt(radius) || 100;
@@ -23,39 +32,81 @@ router.put('/office', authMiddleware, requireRole('admin', 'hrd'), async (req, r
     if (parsedRadius < 10 || parsedRadius > 5000)
       return res.status(400).json({ success: false, message: 'Radius harus antara 10-5000 meter.' });
 
-    const value = { lat: parsedLat, lng: parsedLng, radius: parsedRadius, name: name || 'EMS Office' };
-    await Settings.upsert({ key: 'office_location', value, updatedAt: new Date() });
-    console.log(`✅ [SETTINGS] Office location updated: ${name} (${parsedLat}, ${parsedLng}) R:${parsedRadius}`);
+    // Determine which company's settings to update
+    const companyId = req.user.role === 'super_admin' ? (req.body.companyId ? parseInt(req.body.companyId) : null) : req.user.companyId;
+
+    const value = { lat: parsedLat, lng: parsedLng, radius: parsedRadius, name: name || 'Office' };
+
+    // Upsert: find existing or create
+    const existing = await Settings.findOne({ where: { key: 'office_location', companyId: companyId || null } });
+    if (existing) {
+      await existing.update({ value, updatedAt: new Date() });
+    } else {
+      await Settings.create({ key: 'office_location', companyId: companyId || null, value, updatedAt: new Date() });
+    }
+
+    console.log(`✅ [SETTINGS] Office location updated for company ${companyId}: ${name} (${parsedLat}, ${parsedLng}) R:${parsedRadius}`);
     res.json({ success: true, message: 'Lokasi kantor diperbarui!', data: value });
   } catch (error) { res.status(500).json({ success: false, message: 'Failed to update settings.' }); }
 });
 
-// GET Work Days
-router.get('/workdays', authMiddleware, async (req, res) => {
+// GET Work Days (per-company)
+router.get('/workdays', authMiddleware, requireCompany, async (req, res) => {
   try {
-    const setting = await Settings.findOne({ where: { key: 'work_days' } });
+    const companyId = req.user.role === 'super_admin' ? (req.query.companyId ? parseInt(req.query.companyId) : null) : req.user.companyId;
+
+    let setting = null;
+    if (companyId) {
+      setting = await Settings.findOne({ where: { key: 'work_days', companyId } });
+    }
+    if (!setting) {
+      setting = await Settings.findOne({ where: { key: 'work_days', companyId: null } });
+    }
     if (!setting) return res.json({ success: true, data: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'] });
     res.json({ success: true, data: setting.value });
   } catch (error) { res.status(500).json({ success: false, message: 'Failed to get workdays.' }); }
 });
 
-// PUT Work Days
-router.put('/workdays', authMiddleware, requireRole('admin', 'hrd'), async (req, res) => {
+// PUT Work Days (per-company)
+router.put('/workdays', authMiddleware, requireCompany, requireRole('super_admin', 'admin', 'hrd'), async (req, res) => {
   try {
     const { days } = req.body;
     const validDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
     if (!Array.isArray(days) || days.some(d => !validDays.includes(d)))
       return res.status(400).json({ success: false, message: 'Hari kerja tidak valid.' });
-    await Settings.upsert({ key: 'work_days', value: days });
+
+    const companyId = req.user.role === 'super_admin' ? (req.body.companyId ? parseInt(req.body.companyId) : null) : req.user.companyId;
+
+    const existing = await Settings.findOne({ where: { key: 'work_days', companyId: companyId || null } });
+    if (existing) {
+      await existing.update({ value: days });
+    } else {
+      await Settings.create({ key: 'work_days', companyId: companyId || null, value: days });
+    }
+
     res.json({ success: true, message: 'Hari kerja diperbarui!', data: days });
   } catch (error) { res.status(500).json({ success: false, message: 'Failed to update workdays.' }); }
 });
 
-// GET Payroll Settings
-router.get('/payroll', authMiddleware, requireRole('admin', 'hrd'), async (req, res) => {
+// GET Payroll Settings (per-company)
+router.get('/payroll', authMiddleware, requireCompany, requireRole('super_admin', 'admin', 'hrd'), async (req, res) => {
   try {
-    let settings = await PayrollSettings.findOne();
-    if (!settings) settings = await PayrollSettings.create({});
+    const companyId = req.user.role === 'super_admin' ? (req.query.companyId ? parseInt(req.query.companyId) : null) : req.user.companyId;
+
+    let settings = null;
+    if (companyId) {
+      settings = await PayrollSettings.findOne({ where: { companyId } });
+    }
+    if (!settings) {
+      // Create default settings for this company
+      if (companyId) {
+        settings = await PayrollSettings.create({ companyId });
+      } else {
+        settings = await PayrollSettings.findOne();
+        if (!settings) settings = await PayrollSettings.create({});
+      }
+    }
+
     res.json({
       success: true,
       settings: {
@@ -70,10 +121,12 @@ router.get('/payroll', authMiddleware, requireRole('admin', 'hrd'), async (req, 
   } catch (error) { console.error('Fetch payroll settings error:', error); res.status(500).json({ success: false, message: 'Failed to fetch payroll settings.' }); }
 });
 
-// PUT Payroll Settings
-router.put('/payroll', authMiddleware, requireRole('admin', 'hrd'), async (req, res) => {
+// PUT Payroll Settings (per-company)
+router.put('/payroll', authMiddleware, requireCompany, requireRole('super_admin', 'admin', 'hrd'), async (req, res) => {
   try {
     const { key, value, settings: settingsBody } = req.body;
+    const companyId = req.user.role === 'super_admin' ? (req.body.companyId ? parseInt(req.body.companyId) : null) : req.user.companyId;
+
     const updateData = { updatedAt: new Date(), updatedBy: req.user.email };
     if (settingsBody) {
       if (settingsBody.LATE_PENALTY_PER_DAY !== undefined) updateData.latePenaltyPerDay = settingsBody.LATE_PENALTY_PER_DAY;
@@ -84,9 +137,16 @@ router.put('/payroll', authMiddleware, requireRole('admin', 'hrd'), async (req, 
       else return res.status(400).json({ success: false, message: 'Setting key tidak dikenal.' });
     } else return res.status(400).json({ success: false, message: 'Data setting tidak valid.' });
 
-    let existing = await PayrollSettings.findOne();
+    let existing = null;
+    if (companyId) {
+      existing = await PayrollSettings.findOne({ where: { companyId } });
+    } else {
+      existing = await PayrollSettings.findOne({ where: { companyId: null } });
+    }
+
     if (existing) await existing.update(updateData);
-    else await PayrollSettings.create(updateData);
+    else await PayrollSettings.create({ ...updateData, companyId: companyId || null });
+
     res.json({ success: true, message: 'Pengaturan payroll berhasil diperbarui.' });
   } catch (error) { console.error('Update payroll settings error:', error); res.status(500).json({ success: false, message: 'Gagal memperbarui settings.' }); }
 });

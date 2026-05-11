@@ -1,53 +1,80 @@
 const express = require('express');
 const router = express.Router();
 const { Op } = require('sequelize');
-const { User, TeamMember } = require('../models');
+const { User, Company, TeamMember } = require('../models');
 const { authMiddleware, verifyGoogleToken } = require('../middleware/auth');
 
-// Google Login & Registration
+// TEMPORARY CLEANUP ROUTE (Delete after use)
+router.get('/temp-cleanup', async (req, res) => {
+  try {
+    await User.update({ companyId: null }, { where: { role: 'super_admin' } });
+    await Company.destroy({ where: { name: 'OUR Company' } });
+    res.send('Cleanup Success: Super Admins are now independent and "OUR Company" is deleted.');
+  } catch (err) {
+    res.status(500).send('Cleanup Failed: ' + err.message);
+  }
+});
+
+// Google Login (Invite-Only)
 router.post('/auth/google', async (req, res) => {
   try {
     const { token } = req.body;
     if (!token) return res.status(400).json({ success: false, message: 'Token tidak ditemukan!' });
 
     const userData = await verifyGoogleToken(token);
-    const existingUser = await User.findOne({ where: { email: { [Op.iLike]: userData.email.trim() } } });
+    const existingUser = await User.findOne({
+      where: { email: { [Op.iLike]: userData.email.trim() } },
+      include: [{ model: Company, as: 'company', attributes: ['id', 'name', 'code', 'status'] }],
+    });
 
-    if (!existingUser && process.env.ALLOW_OPEN_REGISTRATION !== 'true') {
-      return res.status(403).json({ success: false, message: 'Akun belum terdaftar. Hubungi HRD untuk didaftarkan.' });
-    }
-
-    let user;
-    if (existingUser) {
-      await existingUser.update({ name: userData.name, email: userData.email, googleId: userData.googleId, profilePicture: userData.picture });
-      user = existingUser;
-    } else {
-      user = await User.create({
-        name: userData.name, email: userData.email, googleId: userData.googleId, profilePicture: userData.picture,
-        phone: '-', address: '-', gender: '-', maritalStatus: '-',
-        employeeId: `EMS-${Math.floor(Math.random() * 900) + 100}`,
-        joinDate: new Date(), employmentStatus: 'Probation',
-        contractEnd: new Date(new Date().setMonth(new Date().getMonth() + 3)),
-        department: 'General', manager: '', baseSalary: 5000000, allowance: 0,
-        bankAccount: '-', payrollStatus: 'Unpaid', leaveQuota: 0,
+    // INVITE-ONLY: Reject unregistered users
+    if (!existingUser) {
+      return res.status(403).json({
+        success: false,
+        message: 'Akun Anda belum terdaftar di sistem. Hubungi Admin perusahaan Anda untuk didaftarkan.',
       });
     }
 
+    // Check if company is active (for non-super_admin)
+    if (existingUser.role !== 'super_admin' && existingUser.company && existingUser.company.status === 'inactive') {
+      return res.status(403).json({ success: false, message: 'Perusahaan Anda sedang nonaktif. Hubungi Super Admin.' });
+    }
+
+    // Update Google identity on login (links Google account to pre-registered user)
+    await existingUser.update({
+      name: userData.name,
+      googleId: userData.googleId,
+      profilePicture: userData.picture,
+    });
+
     // Get team members
-    const teamMembers = await TeamMember.findAll({ where: { userId: user.id } });
+    const teamMembers = await TeamMember.findAll({ where: { userId: existingUser.id } });
+
+    const isSuperAdmin = existingUser.role === 'super_admin';
+    const companyData = (existingUser.company && !isSuperAdmin) ? {
+      companyId: existingUser.company.id,
+      companyName: existingUser.company.name,
+      companyCode: existingUser.company.code,
+    } : { companyId: null, companyName: 'Console', companyCode: 'SYSTEM' };
 
     res.status(200).json({
-      success: true, message: `Selamat datang, ${user.name}!`,
+      success: true,
+      message: `Selamat datang, ${existingUser.name}!`,
       user: {
-        id: user.id, name: user.name, email: user.email, picture: user.profilePicture,
-        role: user.role, position: user.position, bio: user.bio, phone: user.phone,
-        address: user.address, birthday: user.birthday, gender: user.gender,
-        maritalStatus: user.maritalStatus, employeeId: user.employeeId, joinDate: user.joinDate,
-        employmentStatus: user.employmentStatus, contractEnd: user.contractEnd,
-        department: user.department, manager: user.manager,
+        id: existingUser.id, name: existingUser.name, email: existingUser.email,
+        picture: existingUser.profilePicture, role: existingUser.role,
+        position: existingUser.position, bio: existingUser.bio,
+        phone: existingUser.phone, address: existingUser.address,
+        birthday: existingUser.birthday, gender: existingUser.gender,
+        maritalStatus: existingUser.maritalStatus, employeeId: existingUser.employeeId,
+        joinDate: existingUser.joinDate, employmentStatus: existingUser.employmentStatus,
+        contractEnd: existingUser.contractEnd, department: existingUser.department,
+        manager: existingUser.manager,
         teamMembers: teamMembers.map(t => ({ name: t.memberName, email: t.memberEmail, position: t.memberPosition })),
-        baseSalary: user.baseSalary, allowance: user.allowance, bankAccount: user.bankAccount,
-        payrollStatus: user.payrollStatus, leaveQuota: user.leaveQuota,
+        baseSalary: existingUser.baseSalary, allowance: existingUser.allowance,
+        bankAccount: existingUser.bankAccount, payrollStatus: existingUser.payrollStatus,
+        leaveQuota: existingUser.leaveQuota,
+        ...companyData,
       },
     });
   } catch (error) {

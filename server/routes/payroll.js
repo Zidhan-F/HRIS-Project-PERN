@@ -2,42 +2,51 @@ const express = require('express');
 const router = express.Router();
 const { Op } = require('sequelize');
 const { User, Payroll, PayrollLog } = require('../models');
-const { authMiddleware, requireRole } = require('../middleware/auth');
+const { authMiddleware, requireRole, requireCompany } = require('../middleware/auth');
 const { calculateAllPayroll, generateBankTransferCSV, getMonthName } = require('../services/payrollEngine');
 const { generatePayslipPDF } = require('../services/pdfGenerator');
 const { sendBulkPayslips } = require('../services/emailService');
 const { getCronStatus } = require('../services/cronJobs');
 
+// Helper: build company filter
+function companyWhere(req) {
+  if (req.user.role === 'super_admin') return {};
+  return { companyId: req.user.companyId };
+}
+
 // Payroll Audit Logs
-router.get('/logs', authMiddleware, requireRole('admin', 'hrd'), async (req, res) => {
+router.get('/logs', authMiddleware, requireCompany, requireRole('super_admin', 'admin', 'hrd'), async (req, res) => {
   try {
     const logs = await PayrollLog.findAll({ order: [['timestamp', 'DESC']], limit: 50 });
     res.json({ success: true, logs });
   } catch (error) { res.status(500).json({ success: false, message: 'Gagal mengambil log payroll.' }); }
 });
 
-// Calculate Payroll
-router.post('/calculate', authMiddleware, requireRole('admin', 'hrd'), async (req, res) => {
+// Calculate Payroll (company-scoped)
+router.post('/calculate', authMiddleware, requireCompany, requireRole('super_admin', 'admin', 'hrd'), async (req, res) => {
   try {
     const { month, year, ids } = req.body;
     const targetMonth = month !== undefined ? parseInt(month) : new Date().getMonth();
     const targetYear = year !== undefined ? parseInt(year) : new Date().getFullYear();
     if (targetMonth < 0 || targetMonth > 11 || targetYear < 2020 || targetYear > 2100)
       return res.status(400).json({ success: false, message: 'Bulan atau tahun tidak valid.' });
-    const result = await calculateAllPayroll(targetMonth, targetYear, req.user.email, ids);
+
+    // Pass companyId for isolation
+    const companyId = req.user.role === 'super_admin' ? (req.body.companyId || null) : req.user.companyId;
+    const result = await calculateAllPayroll(targetMonth, targetYear, req.user.email, ids, companyId);
     res.json({ success: true, message: `Payroll ${getMonthName(targetMonth)} ${targetYear} berhasil dihitung untuk ${result.results.length} karyawan.`, data: { total: result.total, calculated: result.results.length, errors: result.errors.length, errorDetails: result.errors } });
   } catch (error) { console.error('Payroll calculate error:', error.message); res.status(500).json({ success: false, message: 'Gagal menghitung payroll.' }); }
 });
 
-// Get Payroll Records
-router.get('/records', authMiddleware, requireRole('admin', 'hrd', 'manager'), async (req, res) => {
+// Get Payroll Records (company-scoped)
+router.get('/records', authMiddleware, requireCompany, requireRole('super_admin', 'admin', 'hrd', 'manager'), async (req, res) => {
   try {
     const { month, year } = req.query;
     const targetMonth = month !== undefined ? parseInt(month) : new Date().getMonth();
     const targetYear = year !== undefined ? parseInt(year) : new Date().getFullYear();
-    const records = await Payroll.findAll({ where: { periodMonth: targetMonth, periodYear: targetYear }, order: [['name', 'ASC']] });
+    const where = { periodMonth: targetMonth, periodYear: targetYear, ...companyWhere(req) };
+    const records = await Payroll.findAll({ where, order: [['name', 'ASC']] });
 
-    // Map to match old API format with nested period
     const mappedRecords = records.map(r => {
       const obj = r.toJSON();
       obj.period = { month: obj.periodMonth, year: obj.periodYear };
@@ -56,7 +65,7 @@ router.get('/records', authMiddleware, requireRole('admin', 'hrd', 'manager'), a
   } catch (error) { console.error('Payroll records error:', error.message); res.status(500).json({ success: false, message: 'Gagal mengambil data payroll.' }); }
 });
 
-// My Payslip
+// My Payslip (no company filter needed — user sees their own)
 router.get('/my-payslip', authMiddleware, async (req, res) => {
   try {
     const { month, year } = req.query;
@@ -80,10 +89,12 @@ router.get('/my-payslip', authMiddleware, async (req, res) => {
 });
 
 // Finalize Single
-router.put('/:id/finalize', authMiddleware, requireRole('admin', 'hrd'), async (req, res) => {
+router.put('/:id/finalize', authMiddleware, requireCompany, requireRole('super_admin', 'admin', 'hrd'), async (req, res) => {
   try {
     const record = await Payroll.findByPk(req.params.id);
     if (!record) return res.status(404).json({ success: false, message: 'Record tidak ditemukan.' });
+    if (req.user.role !== 'super_admin' && record.companyId !== req.user.companyId) return res.status(403).json({ success: false, message: 'Akses ditolak.' });
+
     await record.update({ status: 'Finalized', updatedAt: new Date() });
     await PayrollLog.create({ action: 'FINALIZE_SINGLE', performedBy: req.user.name, periodMonth: record.periodMonth, periodYear: record.periodYear, details: `Finalized payroll for ${record.name}.` });
     const obj = record.toJSON(); obj.period = { month: obj.periodMonth, year: obj.periodYear };
@@ -92,12 +103,12 @@ router.put('/:id/finalize', authMiddleware, requireRole('admin', 'hrd'), async (
 });
 
 // Finalize ALL
-router.put('/finalize-all', authMiddleware, requireRole('admin', 'hrd'), async (req, res) => {
+router.put('/finalize-all', authMiddleware, requireCompany, requireRole('super_admin', 'admin', 'hrd'), async (req, res) => {
   try {
     const { month, year, ids } = req.body;
     const targetMonth = month !== undefined ? parseInt(month) : new Date().getMonth();
     const targetYear = year !== undefined ? parseInt(year) : new Date().getFullYear();
-    const where = { periodMonth: targetMonth, periodYear: targetYear, status: 'Draft' };
+    const where = { periodMonth: targetMonth, periodYear: targetYear, status: 'Draft', ...companyWhere(req) };
     if (ids && ids.length > 0) where.id = { [Op.in]: ids };
     const [count] = await Payroll.update({ status: 'Finalized', updatedAt: new Date() }, { where });
     await PayrollLog.create({ action: 'FINALIZE_ALL', performedBy: req.user.name, periodMonth: targetMonth, periodYear: targetYear, entitiesCount: count, details: `Finalized ${count} payroll records.` });
@@ -106,10 +117,12 @@ router.put('/finalize-all', authMiddleware, requireRole('admin', 'hrd'), async (
 });
 
 // Mark Paid Single
-router.put('/:id/mark-paid', authMiddleware, requireRole('admin', 'hrd'), async (req, res) => {
+router.put('/:id/mark-paid', authMiddleware, requireCompany, requireRole('super_admin', 'admin', 'hrd'), async (req, res) => {
   try {
     const record = await Payroll.findOne({ where: { id: req.params.id, status: 'Finalized' } });
     if (!record) return res.status(400).json({ success: false, message: 'Record tidak ditemukan atau belum berstatus Finalized.' });
+    if (req.user.role !== 'super_admin' && record.companyId !== req.user.companyId) return res.status(403).json({ success: false, message: 'Akses ditolak.' });
+
     await record.update({ status: 'Paid', updatedAt: new Date() });
     await User.update({ payrollStatus: 'Paid' }, { where: { id: record.employeeId } });
     await PayrollLog.create({ action: 'MARK_PAID_SINGLE', performedBy: req.user.name, periodMonth: record.periodMonth, periodYear: record.periodYear, details: `Marked payroll for ${record.name} as PAID.` });
@@ -119,12 +132,12 @@ router.put('/:id/mark-paid', authMiddleware, requireRole('admin', 'hrd'), async 
 });
 
 // Mark ALL Paid
-router.put('/mark-all-paid', authMiddleware, requireRole('admin', 'hrd'), async (req, res) => {
+router.put('/mark-all-paid', authMiddleware, requireCompany, requireRole('super_admin', 'admin', 'hrd'), async (req, res) => {
   try {
     const { month, year, ids } = req.body;
     const targetMonth = month !== undefined ? parseInt(month) : new Date().getMonth();
     const targetYear = year !== undefined ? parseInt(year) : new Date().getFullYear();
-    const where = { periodMonth: targetMonth, periodYear: targetYear, status: 'Finalized' };
+    const where = { periodMonth: targetMonth, periodYear: targetYear, status: 'Finalized', ...companyWhere(req) };
     if (ids && ids.length > 0) where.id = { [Op.in]: ids };
     const records = await Payroll.findAll({ where, attributes: ['employeeId'] });
     const employeeIds = records.map(r => r.employeeId);
@@ -136,10 +149,12 @@ router.put('/mark-all-paid', authMiddleware, requireRole('admin', 'hrd'), async 
 });
 
 // Mark Unpaid Single
-router.put('/:id/mark-unpaid', authMiddleware, requireRole('admin', 'hrd'), async (req, res) => {
+router.put('/:id/mark-unpaid', authMiddleware, requireCompany, requireRole('super_admin', 'admin', 'hrd'), async (req, res) => {
   try {
     const record = await Payroll.findByPk(req.params.id);
     if (!record) return res.status(404).json({ success: false, message: 'Record tidak ditemukan.' });
+    if (req.user.role !== 'super_admin' && record.companyId !== req.user.companyId) return res.status(403).json({ success: false, message: 'Akses ditolak.' });
+
     await record.update({ status: 'Draft', updatedAt: new Date() });
     await User.update({ payrollStatus: 'Unpaid' }, { where: { id: record.employeeId } });
     await PayrollLog.create({ action: 'MARK_UNPAID_SINGLE', performedBy: req.user.name, periodMonth: record.periodMonth, periodYear: record.periodYear, details: `Marked payroll for ${record.name} as UNPAID.` });
@@ -149,12 +164,12 @@ router.put('/:id/mark-unpaid', authMiddleware, requireRole('admin', 'hrd'), asyn
 });
 
 // Mark ALL Unpaid
-router.put('/mark-all-unpaid', authMiddleware, requireRole('admin', 'hrd'), async (req, res) => {
+router.put('/mark-all-unpaid', authMiddleware, requireCompany, requireRole('super_admin', 'admin', 'hrd'), async (req, res) => {
   try {
     const { month, year, ids } = req.body;
     const targetMonth = month !== undefined ? parseInt(month) : new Date().getMonth();
     const targetYear = year !== undefined ? parseInt(year) : new Date().getFullYear();
-    const where = { periodMonth: targetMonth, periodYear: targetYear, status: { [Op.in]: ['Paid', 'Finalized'] } };
+    const where = { periodMonth: targetMonth, periodYear: targetYear, status: { [Op.in]: ['Paid', 'Finalized'] }, ...companyWhere(req) };
     if (ids && ids.length > 0) where.id = { [Op.in]: ids };
     const records = await Payroll.findAll({ where, attributes: ['employeeId'] });
     const employeeIds = records.map(r => r.employeeId);
@@ -170,10 +185,14 @@ router.get('/:id/pdf', authMiddleware, async (req, res) => {
   try {
     const record = await Payroll.findByPk(req.params.id);
     if (!record) return res.status(404).json({ success: false, message: 'Record tidak ditemukan.' });
-    const isPrivileged = ['admin', 'hrd', 'manager'].includes(req.user.role);
+    const isPrivileged = ['super_admin', 'admin', 'hrd', 'manager'].includes(req.user.role);
     if (!isPrivileged && record.email.toLowerCase() !== req.user.email.toLowerCase()) return res.status(403).json({ success: false, message: 'Akses ditolak.' });
 
-    // Map to old format for PDF generator
+    // Company isolation for privileged users
+    if (isPrivileged && req.user.role !== 'super_admin' && record.companyId !== req.user.companyId) {
+      return res.status(403).json({ success: false, message: 'Akses ditolak.' });
+    }
+
     const obj = record.toJSON();
     obj.period = { month: obj.periodMonth, year: obj.periodYear };
     obj.attendanceSummary = { daysPresent: obj.daysPresent, daysLate: obj.daysLateAtt, overtimeHours: obj.overtimeHoursAtt, totalWorkHours: obj.totalWorkHours };
@@ -185,18 +204,17 @@ router.get('/:id/pdf', authMiddleware, async (req, res) => {
   } catch (error) { console.error('PDF generate error:', error.message); res.status(500).json({ success: false, message: 'Gagal generate PDF.' }); }
 });
 
-// Send Email Blast
-router.post('/send-emails', authMiddleware, requireRole('admin', 'hrd'), async (req, res) => {
+// Send Email Blast (company-scoped)
+router.post('/send-emails', authMiddleware, requireCompany, requireRole('super_admin', 'admin', 'hrd'), async (req, res) => {
   try {
     const { month, year, ids } = req.body;
     const targetMonth = month !== undefined ? parseInt(month) : new Date().getMonth();
     const targetYear = year !== undefined ? parseInt(year) : new Date().getFullYear();
-    const where = { periodMonth: targetMonth, periodYear: targetYear, status: { [Op.in]: ['Finalized', 'Paid'] } };
+    const where = { periodMonth: targetMonth, periodYear: targetYear, status: { [Op.in]: ['Finalized', 'Paid'] }, ...companyWhere(req) };
     if (ids && ids.length > 0) where.id = { [Op.in]: ids };
     const records = await Payroll.findAll({ where });
     if (records.length === 0) return res.status(400).json({ success: false, message: 'Tidak ada payroll yang siap dikirim.' });
 
-    // Map records for email service
     const mappedRecords = records.map(r => { const obj = r.toJSON(); obj.period = { month: obj.periodMonth, year: obj.periodYear }; return obj; });
     const result = await sendBulkPayslips(mappedRecords, generatePayslipPDF);
     await PayrollLog.create({ action: 'SEND_EMAILS', performedBy: req.user.name, periodMonth: targetMonth, periodYear: targetYear, entitiesCount: result.sent, details: `Sent ${result.sent} emails. Failed: ${result.failed}.` });
@@ -204,15 +222,16 @@ router.post('/send-emails', authMiddleware, requireRole('admin', 'hrd'), async (
   } catch (error) { console.error('Email blast error:', error.message); res.status(500).json({ success: false, message: 'Gagal mengirim email blast.' }); }
 });
 
-// Export Bank Transfer
-router.get('/export-bank', authMiddleware, requireRole('admin', 'hrd'), async (req, res) => {
+// Export Bank Transfer (company-scoped)
+router.get('/export-bank', authMiddleware, requireCompany, requireRole('super_admin', 'admin', 'hrd'), async (req, res) => {
   try {
     const { month, year, format, ids } = req.query;
     const targetMonth = month !== undefined ? parseInt(month) : new Date().getMonth();
     const targetYear = year !== undefined ? parseInt(year) : new Date().getFullYear();
     let idArray = [];
     if (ids) idArray = ids.split(',').filter(id => id.trim().length > 0);
-    const result = await generateBankTransferCSV(targetMonth, targetYear, format || 'bca', idArray);
+    const companyId = req.user.role === 'super_admin' ? null : req.user.companyId;
+    const result = await generateBankTransferCSV(targetMonth, targetYear, format || 'bca', idArray, companyId);
     if (!result.content || result.content.split('\n').length <= 2) return res.status(400).json({ success: false, message: 'Tidak ada data payroll yang tersedia untuk diekspor.' });
     await PayrollLog.create({ action: 'EXPORT_BANK', performedBy: req.user.name, periodMonth: targetMonth, periodYear: targetYear, details: `Exported bank file in ${format || 'bca'} format.` });
     const contentType = (format || 'mandiri') === 'mandiri' ? 'text/plain' : 'text/csv';
@@ -222,7 +241,7 @@ router.get('/export-bank', authMiddleware, requireRole('admin', 'hrd'), async (r
 });
 
 // Cron Status
-router.get('/cron-status', authMiddleware, requireRole('admin'), async (req, res) => {
+router.get('/cron-status', authMiddleware, requireRole('super_admin', 'admin'), async (req, res) => {
   try { res.json({ success: true, data: getCronStatus() }); }
   catch (error) { res.status(500).json({ success: false, message: 'Gagal mengambil status cron.' }); }
 });

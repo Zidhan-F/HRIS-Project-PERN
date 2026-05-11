@@ -14,15 +14,23 @@ const User = sequelize.define('User', {
   email: {
     type: DataTypes.STRING,
     allowNull: false,
-    unique: true,
   },
   googleId: {
     type: DataTypes.STRING,
     field: 'google_id',
   },
   role: {
-    type: DataTypes.ENUM('employee', 'hrd', 'manager', 'admin'),
+    type: DataTypes.ENUM('super_admin', 'admin', 'hrd', 'manager', 'employee'),
     defaultValue: 'employee',
+  },
+  companyId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    field: 'company_id',
+    references: {
+      model: 'companies',
+      key: 'id',
+    },
   },
   position: {
     type: DataTypes.STRING,
@@ -154,6 +162,12 @@ const User = sequelize.define('User', {
 }, {
   tableName: 'users',
   timestamps: false,
+  indexes: [
+    {
+      unique: true,
+      fields: ['email'],
+    },
+  ],
 });
 
 module.exports = User;

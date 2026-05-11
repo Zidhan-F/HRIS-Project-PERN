@@ -2,17 +2,21 @@ const express = require('express');
 const router = express.Router();
 const { Op } = require('sequelize');
 const { User, Request } = require('../models');
-const { authMiddleware, requireRole } = require('../middleware/auth');
+const { authMiddleware, requireRole, requireCompany } = require('../middleware/auth');
 const { validateRequestInput } = require('../helpers/validation');
 const ical = require('node-ical');
 
 // Submit Request
-router.post('/', authMiddleware, async (req, res) => {
+router.post('/', authMiddleware, requireCompany, async (req, res) => {
   try {
     const { type, startDate, endDate, reason, amount } = req.body;
     const validationErrors = validateRequestInput(req.body);
     if (validationErrors.length > 0) return res.status(400).json({ success: false, message: validationErrors.join(', ') });
-    const newRequest = await Request.create({ userId: req.user.id, email: req.user.email, name: req.user.name, type, startDate, endDate, reason, amount });
+    const newRequest = await Request.create({
+      userId: req.user.id, companyId: req.user.companyId,
+      email: req.user.email, name: req.user.name,
+      type, startDate, endDate, reason, amount,
+    });
     res.status(201).json({ success: true, message: 'Request submitted successfully!', request: newRequest });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to submit request.' });
@@ -29,11 +33,17 @@ router.get('/', authMiddleware, async (req, res) => {
   }
 });
 
-// Pending Requests (Admin/Manager/HRD)
-router.get('/pending', authMiddleware, requireRole('admin', 'manager', 'hrd'), async (req, res) => {
+// Pending Requests (Admin/Manager/HRD) — filtered by company
+router.get('/pending', authMiddleware, requireCompany, requireRole('super_admin', 'admin', 'manager', 'hrd'), async (req, res) => {
   try {
+    const where = { status: 'Pending' };
+    // Company isolation
+    if (req.user.role !== 'super_admin') {
+      where.companyId = req.user.companyId;
+    }
+
     const requests = await Request.findAll({
-      where: { status: 'Pending' }, order: [['timestamp', 'DESC']],
+      where, order: [['timestamp', 'DESC']],
       include: [{ model: User, as: 'user', attributes: ['profilePicture'] }],
     });
     const result = requests.map(r => {
@@ -49,13 +59,23 @@ router.get('/pending', authMiddleware, requireRole('admin', 'manager', 'hrd'), a
   }
 });
 
-// Active Leave Today
-router.get('/active-leave', authMiddleware, async (req, res) => {
+// Active Leave Today — filtered by company
+router.get('/active-leave', authMiddleware, requireCompany, async (req, res) => {
   try {
     const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
     const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
+
+    const where = {
+      status: 'Approved', type: { [Op.in]: ['Leave', 'Sick', 'Permit'] },
+      startDate: { [Op.lte]: todayEnd }, endDate: { [Op.gte]: todayStart },
+    };
+    // Company isolation
+    if (req.user.role !== 'super_admin') {
+      where.companyId = req.user.companyId;
+    }
+
     const activeLeaves = await Request.findAll({
-      where: { status: 'Approved', type: { [Op.in]: ['Leave', 'Sick', 'Permit'] }, startDate: { [Op.lte]: todayEnd }, endDate: { [Op.gte]: todayStart } },
+      where,
       include: [{ model: User, as: 'user', attributes: ['profilePicture'] }],
     });
     const result = activeLeaves.map(r => { const obj = r.toJSON(); obj.profilePicture = obj.user ? obj.user.profilePicture : null; delete obj.user; return obj; });
@@ -66,11 +86,17 @@ router.get('/active-leave', authMiddleware, async (req, res) => {
   }
 });
 
-// Recent Requests Feed
-router.get('/recent', authMiddleware, async (req, res) => {
+// Recent Requests Feed — filtered by company
+router.get('/recent', authMiddleware, requireCompany, async (req, res) => {
   try {
+    const where = { type: { [Op.in]: ['Leave', 'Sick', 'Permit'] } };
+    // Company isolation
+    if (req.user.role !== 'super_admin') {
+      where.companyId = req.user.companyId;
+    }
+
     const recentRequests = await Request.findAll({
-      where: { type: { [Op.in]: ['Leave', 'Sick', 'Permit'] } },
+      where,
       order: [['timestamp', 'DESC']], limit: 10,
       include: [{ model: User, as: 'user', attributes: ['profilePicture'] }],
     });
@@ -83,7 +109,7 @@ router.get('/recent', authMiddleware, async (req, res) => {
 });
 
 // Update Request Status
-router.put('/:id/status', authMiddleware, requireRole('admin', 'manager', 'hrd'), async (req, res) => {
+router.put('/:id/status', authMiddleware, requireCompany, requireRole('super_admin', 'admin', 'manager', 'hrd'), async (req, res) => {
   try {
     const { status } = req.body;
     const { id } = req.params;
@@ -91,6 +117,11 @@ router.put('/:id/status', authMiddleware, requireRole('admin', 'manager', 'hrd')
 
     const oldRequest = await Request.findByPk(id);
     if (!oldRequest) return res.status(404).json({ success: false, message: 'Request not found.' });
+
+    // Company isolation
+    if (req.user.role !== 'super_admin' && oldRequest.companyId !== req.user.companyId) {
+      return res.status(403).json({ success: false, message: 'Akses ditolak.' });
+    }
 
     let unpaidDays = 0, isUnpaid = false;
     if (status === 'Approved' && oldRequest.status !== 'Approved' && oldRequest.type === 'Leave') {

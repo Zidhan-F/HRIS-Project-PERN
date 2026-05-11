@@ -18,6 +18,10 @@ import AttendancePersonal from './components/AttendancePersonal';
 import AttendanceReport from './components/AttendanceReport';
 import DailyReport from './components/DailyReport';
 import ScheduleView from './components/ScheduleView';
+import CompanyManagement from './components/CompanyManagement';
+import CompanySettings from './components/CompanySettings';
+import GlobalSettings from './components/GlobalSettings';
+import SuperAdminDashboard from './components/SuperAdminDashboard';
 
 // Modals
 import EditProfileModal from './components/modals/EditProfileModal';
@@ -54,6 +58,10 @@ function App() {
   const [requests, setRequests] = useState([]);
   const [pendingRequests, setPendingRequests] = useState([]);
   const [showRequestModal, setShowRequestModal] = useState(false);
+
+  useEffect(() => {
+    document.title = "DayHR - Simplify your work day";
+  }, []);
   const [selectedRequestType, setSelectedRequestType] = useState(null);
   const [requestFormData, setRequestFormData] = useState({ startDate: '', endDate: '', reason: '', amount: '' });
   const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
@@ -177,10 +185,15 @@ function App() {
 
   const fetchAttendanceSummary = useCallback(async () => {
     try {
-      const res = await axios.get(`${API_URL}/api/attendance/summary/today`);
-      if (res.data.success) setAttendanceSummary(res.data);
+      if (user?.role === 'super_admin') {
+        const res = await axios.get(`${API_URL}/api/companies/dashboard/stats`);
+        if (res.data.success) setAttendanceSummary(res.data.stats);
+      } else {
+        const res = await axios.get(`${API_URL}/api/attendance/summary/today`);
+        if (res.data.success) setAttendanceSummary(res.data);
+      }
     } catch (err) { console.error('Error fetching dashboard summary:', err); }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (activeMenu === 'dashboard') fetchAttendanceSummary();
@@ -309,9 +322,12 @@ function App() {
     try {
       const result = await axios.post(`${API_URL}/api/auth/google`, { token: credential });
       if (result.data.success) {
-        setUser(result.data.user); setToken(credential);
+        const u = result.data.user;
+        u.companyName = result.data.companyName || u.companyName;
+        u.companyId = result.data.companyId || u.companyId;
+        setUser(u); setToken(credential);
         axios.defaults.headers.common['Authorization'] = `Bearer ${credential}`;
-        fetchHistory(result.data.user.email);
+        fetchHistory(u.email);
       }
     } catch (error) {
       console.error('Gagal verifikasi:', error);
@@ -651,10 +667,18 @@ function App() {
 
       {sidebarOpen && <div className="sidebar-overlay" onClick={closeSidebar}></div>}
       <Sidebar sidebarOpen={sidebarOpen} sidebarClosing={sidebarClosing} closeSidebar={closeSidebar} activeMenu={activeMenu} activeSubMenu={activeSubMenu} expandedMenu={expandedMenu} user={user} handleMenuClick={handleMenuClick} handleSubMenuClick={handleSubMenuClick} />
-      <TopNavbar sidebarOpen={sidebarOpen} openSidebar={openSidebar} user={user} handleLogout={handleLogout} />
-
+      <TopNavbar 
+        sidebarOpen={sidebarOpen} 
+        openSidebar={openSidebar} 
+        user={user} 
+        handleLogout={handleLogout}
+        setActiveMenu={setActiveMenu}
+      /> 
       <main className="dashboard-content">
-        {activeMenu === 'dashboard' && (
+        {activeMenu === 'dashboard' && user?.role === 'super_admin' && (
+          <SuperAdminDashboard user={user} currentTime={currentTime} handleMenuClick={handleMenuClick} />
+        )}
+        {activeMenu === 'dashboard' && user?.role !== 'super_admin' && (
           <Dashboard user={user} currentTime={currentTime} welcomeIndex={welcomeIndex} attendanceSummary={attendanceSummary} activeTab={activeTab} setActiveTab={setActiveTab} onLeaveToday={onLeaveToday} recentActivities={recentActivities} handleDashboardViewMore={handleDashboardViewMore} officeSettings={officeSettings} userLocation={userLocation} locationStatus={locationStatus} distanceToOffice={distanceToOffice} cameraStatus={cameraStatus} capturedPhoto={capturedPhoto} videoRef={videoRef} canvasRef={canvasRef} setEditOfficeData={setEditOfficeData} setShowOfficeModal={setShowOfficeModal} clockLoading={clockLoading} statusMsg={statusMsg} handleClock={handleClock} history={history} />
         )}
         {activeMenu === 'profile' && (
@@ -688,6 +712,16 @@ function App() {
         )}
         {activeMenu === 'attendance' && activeSubMenu === 'att-daily' && user?.role !== 'employee' && (
           <DailyReport dailyReports={dailyReports} isFetchingDaily={isFetchingDaily} dailyDate={dailyDate} setDailyDate={setDailyDate} fetchDailyReports={fetchDailyReports} />
+        )}
+        {activeMenu === 'settings' && (
+          user?.role === 'super_admin' ? (
+            <GlobalSettings user={user} />
+          ) : (
+            <CompanySettings user={user} setStatusMsg={setStatusMsg} officeSettings={officeSettings} setOfficeSettings={setOfficeSettings} workDays={workDays} setWorkDays={setWorkDays} />
+          )
+        )}
+        {activeMenu === 'companies' && user?.role === 'super_admin' && (
+          <CompanyManagement user={user} setStatusMsg={setStatusMsg} />
         )}
       </main>
 

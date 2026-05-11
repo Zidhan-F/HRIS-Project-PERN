@@ -6,7 +6,7 @@ const Attendance = require('../models/Attendance');
 const Request = require('../models/Request');
 
 // ============================================================
-// KONFIGURASI TARIF
+// DEFAULT RATES (fallback when no company-specific settings)
 // ============================================================
 const RATES = {
   LATE_PENALTY_PER_DAY: 50000,
@@ -157,7 +157,12 @@ async function calculateEmployeePayroll(userId, month, year, calculatedBy = 'sys
     if (pS.overtimeRatePerHour !== undefined) settings.OVERTIME_PER_HOUR = Number(pS.overtimeRatePerHour);
   } else {
     try {
-      const pS = await PayrollSettings.findOne();
+      // Fetch company-specific payroll settings
+      let pS = null;
+      if (user.companyId) {
+        pS = await PayrollSettings.findOne({ where: { companyId: user.companyId } });
+      }
+      if (!pS) pS = await PayrollSettings.findOne({ where: { companyId: null } });
       if (pS) {
         if (pS.latePenaltyPerDay !== undefined) settings.LATE_PENALTY_PER_DAY = Number(pS.latePenaltyPerDay);
         if (pS.overtimeRatePerHour !== undefined) settings.OVERTIME_PER_HOUR = Number(pS.overtimeRatePerHour);
@@ -202,7 +207,7 @@ async function calculateEmployeePayroll(userId, month, year, calculatedBy = 'sys
   const netPay = Math.max(0, grossPay - totalDeductions);
 
   const payrollData = {
-    employeeId: user.id, email: user.email, name: user.name,
+    employeeId: user.id, companyId: user.companyId, email: user.email, name: user.name,
     position: user.position || 'Staff', department: user.department || 'General',
     employeeCode: user.employeeId || 'EMS-000', profilePicture: user.profilePicture,
     bankAccount: user.bankAccount || '-', bankName: user.bankName || '-',
@@ -236,21 +241,31 @@ async function calculateEmployeePayroll(userId, month, year, calculatedBy = 'sys
 }
 
 // ============================================================
-// CALCULATE ALL (Bulk Optimized)
+// CALCULATE ALL (Bulk Optimized, Company-Scoped)
 // ============================================================
-async function calculateAllPayroll(month, year, calculatedBy = 'system-cron', ids = []) {
+async function calculateAllPayroll(month, year, calculatedBy = 'system-cron', ids = [], companyId = null) {
   const where = {};
   if (ids && ids.length > 0) where.id = { [Op.in]: ids };
+  if (companyId) where.companyId = companyId;
   const users = await User.findAll({ where, order: [['name', 'ASC']] });
 
   const start = new Date(year, month, 1);
   const end = new Date(year, month + 1, 0, 23, 59, 59);
-  console.log(`🚀 [PAYROLL] Starting bulk calculation for ${users.length} users...`);
+  console.log(`🚀 [PAYROLL] Starting bulk calculation for ${users.length} users (company: ${companyId || 'all'})...`);
+
+  const attWhere = { timestamp: { [Op.between]: [start, end] } };
+  const reqWhere = { status: 'Approved', [Op.or]: [{ timestamp: { [Op.between]: [start, end] } }, { startDate: { [Op.lte]: end }, endDate: { [Op.gte]: start } }] };
+  if (companyId) {
+    attWhere.companyId = companyId;
+    reqWhere.companyId = companyId;
+  }
+
+  const payrollSettingsWhere = companyId ? { companyId } : {};
 
   const [allAttendance, allRequests, payrollSettings] = await Promise.all([
-    Attendance.findAll({ where: { timestamp: { [Op.between]: [start, end] } } }),
-    Request.findAll({ where: { status: 'Approved', [Op.or]: [{ timestamp: { [Op.between]: [start, end] } }, { startDate: { [Op.lte]: end }, endDate: { [Op.gte]: start } }] } }),
-    PayrollSettings.findOne(),
+    Attendance.findAll({ where: attWhere }),
+    Request.findAll({ where: reqWhere }),
+    PayrollSettings.findOne({ where: payrollSettingsWhere }),
   ]);
 
   const attendanceMap = {}, requestMap = {};
@@ -270,12 +285,13 @@ async function calculateAllPayroll(month, year, calculatedBy = 'system-cron', id
 }
 
 // ============================================================
-// BANK TRANSFER CSV
+// BANK TRANSFER CSV (Company-Scoped)
 // ============================================================
-async function generateBankTransferCSV(month, year, format = 'bca', ids = []) {
+async function generateBankTransferCSV(month, year, format = 'bca', ids = [], companyId = null) {
   const where = { periodMonth: month, periodYear: year };
   if (ids && ids.length > 0) where.id = { [Op.in]: ids };
   else where.status = { [Op.in]: ['Finalized', 'Paid'] };
+  if (companyId) where.companyId = companyId;
   const records = await Payroll.findAll({ where, order: [['name', 'ASC']] });
 
   const esc = (val) => { if (val === null || val === undefined) return ''; const str = String(val); if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('|')) return `"${str.replace(/"/g, '""')}"`; return str; };

@@ -36,34 +36,53 @@ export default function Dashboard({
         </div>
       </div>
 
-      {['admin', 'manager', 'hrd'].includes(user?.role) && (
+      {['admin', 'manager', 'hrd', 'super_admin'].includes(user?.role) && (
         <div className="stats-grid animate-fadeInScale" style={{ padding: '0 20px', marginBottom: '24px', animationDelay: '0.1s' }}>
-          <div className="stat-card glass-panel">
-            <div className="stat-label">Total Staff</div>
-            <div className="vibrant-value blue">{attendanceSummary.totalStaff}</div>
-          </div>
-          <div className="stat-card glass-panel">
-            <div className="stat-label">Present Today</div>
-            <div className="vibrant-value green">
-              {attendanceSummary.presentCount}
-              <span style={{ fontSize: '12px', marginLeft: '4px', fontWeight: '400', color: '#64748b' }}>
-                ({Math.round((attendanceSummary.presentCount / (attendanceSummary.totalStaff || 1)) * 100)}%)
-              </span>
-            </div>
-          </div>
-          <div className="stat-card glass-panel">
-            <div className="stat-label">Late Arrivals</div>
-            <div className="vibrant-value red">
-              {attendanceSummary.lateCount}
-            </div>
-          </div>
+          {user?.role === 'super_admin' ? (
+            <>
+              <div className="stat-card glass-panel">
+                <div className="stat-label">Total Companies</div>
+                <div className="vibrant-value blue">{attendanceSummary.totalCompanies || 0}</div>
+              </div>
+              <div className="stat-card glass-panel">
+                <div className="stat-label">Active Companies</div>
+                <div className="vibrant-value green">{attendanceSummary.activeCompanies || 0}</div>
+              </div>
+              <div className="stat-card glass-panel">
+                <div className="stat-label">Global Employees</div>
+                <div className="vibrant-value purple">{attendanceSummary.totalUsers || 0}</div>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="stat-card glass-panel">
+                <div className="stat-label">Total Staff</div>
+                <div className="vibrant-value blue">{attendanceSummary.totalStaff}</div>
+              </div>
+              <div className="stat-card glass-panel">
+                <div className="stat-label">Present Today</div>
+                <div className="vibrant-value green">
+                  {attendanceSummary.presentCount}
+                  <span style={{ fontSize: '12px', marginLeft: '4px', fontWeight: '400', color: '#64748b' }}>
+                    ({Math.round((attendanceSummary.presentCount / (attendanceSummary.totalStaff || 1)) * 100)}%)
+                  </span>
+                </div>
+              </div>
+              <div className="stat-card glass-panel">
+                <div className="stat-label">Late Arrivals</div>
+                <div className="vibrant-value red">{attendanceSummary.lateCount}</div>
+              </div>
+            </>
+          )}
         </div>
       )}
 
       <div className="tabs-container">
         <div className="tabs-row">
           <button className={`tab-item ${activeTab === 'feed' ? 'active' : ''}`} onClick={() => setActiveTab('feed')}><span className="material-icons-outlined">dashboard</span>Feed</button>
-          <button className={`tab-item ${activeTab === 'myinfo' ? 'active' : ''}`} onClick={() => setActiveTab('myinfo')}><span className="material-icons-outlined">person_outline</span>My Info</button>
+          {(user?.role !== 'super_admin' || user?.companyId) && (
+            <button className={`tab-item ${activeTab === 'myinfo' ? 'active' : ''}`} onClick={() => setActiveTab('myinfo')}><span className="material-icons-outlined">person_outline</span>My Info</button>
+          )}
         </div>
       </div>
 
@@ -150,7 +169,7 @@ export default function Dashboard({
                 </div>
 
                 {['admin', 'hrd'].includes(user?.role) && (
-                  <button className="nav-icon-btn" style={{ width: '32px', height: '32px' }} onClick={() => { setEditOfficeData(officeSettings); setShowOfficeModal(true); }} title="Edit Office Location">
+                  <button className="nav-icon-btn" style={{ width: '32px', height: '32px' }} onClick={() => alert('Silakan gunakan menu "Settings" di sidebar untuk mengubah lokasi kantor dan konfigurasi perusahaan.')} title="Go to Settings">
                     <span className="material-icons-outlined" style={{ fontSize: '18px' }}>settings</span>
                   </button>
                 )}

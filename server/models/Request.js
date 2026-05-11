@@ -12,6 +12,12 @@ const Request = sequelize.define('Request', {
     field: 'user_id',
     references: { model: 'users', key: 'id' },
   },
+  companyId: {
+    type: DataTypes.INTEGER,
+    field: 'company_id',
+    references: { model: 'companies', key: 'id' },
+    allowNull: true,
+  },
   email: {
     type: DataTypes.STRING,
     allowNull: false,

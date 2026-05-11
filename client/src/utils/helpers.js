@@ -24,14 +24,16 @@ export const WELCOME_MESSAGES = [
 ];
 
 export const MENU_ITEMS = [
-  { id: 'dashboard', label: 'Dashboard', icon: 'dashboard', hasSubmenu: false },
-  { id: 'profile', label: 'Profile', icon: 'person_outline', hasSubmenu: false },
-  { id: 'employee', label: 'Employee', icon: 'groups', hasSubmenu: false },
+  { id: 'dashboard', label: 'Dashboard', icon: 'dashboard', hasSubmenu: false, roles: ['super_admin', 'admin', 'hrd', 'manager', 'employee'] },
+  { id: 'companies', label: 'Companies', icon: 'business', hasSubmenu: false, roles: ['super_admin'] },
+  { id: 'profile', label: 'Profile', icon: 'person_outline', hasSubmenu: false, roles: ['super_admin', 'admin', 'hrd', 'manager', 'employee'] },
+  { id: 'employee', label: 'Employee', icon: 'groups', hasSubmenu: false, roles: ['admin', 'hrd', 'manager'] },
   {
     id: 'attendance',
     label: 'Attendance',
     icon: 'schedule',
     hasSubmenu: true,
+    roles: ['admin', 'hrd', 'manager', 'employee'],
     submenus: [
       { id: 'att-personal', label: 'Personal' },
       { id: 'att-schedule', label: 'Schedule' },
@@ -39,8 +41,9 @@ export const MENU_ITEMS = [
       { id: 'att-daily', label: 'Daily Report' }
     ]
   },
-  { id: 'payroll', label: 'Payroll', icon: 'account_balance_wallet', hasSubmenu: false },
-  { id: 'leave', label: 'Leave', icon: 'event_busy', hasSubmenu: false },
+  { id: 'payroll', label: 'Payroll', icon: 'account_balance_wallet', hasSubmenu: false, roles: ['admin', 'hrd', 'manager', 'employee'] },
+  { id: 'leave', label: 'Leave', icon: 'event_busy', hasSubmenu: false, roles: ['admin', 'hrd', 'manager', 'employee'] },
+  { id: 'settings', label: 'Settings', icon: 'tune', hasSubmenu: false, roles: ['super_admin', 'admin', 'hrd', 'manager'] },
 ];
 
 // Haversine formula — calculate distance between two GPS points in meters

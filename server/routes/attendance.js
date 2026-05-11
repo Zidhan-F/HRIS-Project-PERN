@@ -2,24 +2,32 @@ const express = require('express');
 const router = express.Router();
 const { Op } = require('sequelize');
 const { User, Attendance, Settings } = require('../models');
-const { authMiddleware, requireRole } = require('../middleware/auth');
+const { authMiddleware, requireRole, requireCompany } = require('../middleware/auth');
 const { calculateDistance } = require('../helpers/validation');
 
-// Settings cache
+// Settings cache (now per-company)
 const settingsCache = {};
-async function getDynamicSetting(key, defaultValue) {
-  const cached = settingsCache[key];
+async function getDynamicSetting(key, defaultValue, companyId = null) {
+  const cacheKey = `${companyId || 'global'}_${key}`;
+  const cached = settingsCache[cacheKey];
   if (cached && (Date.now() - cached.timestamp < 5 * 60 * 1000)) return cached.value;
   try {
-    const setting = await Settings.findOne({ where: { key } });
+    // Try company-specific setting first, then global
+    let setting = null;
+    if (companyId) {
+      setting = await Settings.findOne({ where: { key, companyId } });
+    }
+    if (!setting) {
+      setting = await Settings.findOne({ where: { key, companyId: null } });
+    }
     const value = (setting && setting.value !== undefined && setting.value !== null) ? setting.value : defaultValue;
-    settingsCache[key] = { value, timestamp: Date.now() };
+    settingsCache[cacheKey] = { value, timestamp: Date.now() };
     return value;
   } catch (e) { return defaultValue; }
 }
 
 // Submit Attendance
-router.post('/attendance/submit', authMiddleware, async (req, res) => {
+router.post('/attendance/submit', authMiddleware, requireCompany, async (req, res) => {
   try {
     const { lat, lng, type } = req.body;
     const clockType = type || 'clock_in';
@@ -33,7 +41,8 @@ router.post('/attendance/submit', authMiddleware, async (req, res) => {
     if (lat === undefined || lng === undefined) return res.status(400).json({ success: false, message: 'Koordinat GPS diperlukan.' });
     if (type && !['clock_in', 'clock_out'].includes(type)) return res.status(400).json({ success: false, message: 'Tipe absensi tidak valid.' });
 
-    const office = await getDynamicSetting('office_location', { lat: -6.1528, lng: 106.7909, radius: 100 });
+    // Get company-specific office location
+    const office = await getDynamicSetting('office_location', { lat: -6.1528, lng: 106.7909, radius: 100, name: 'Office' }, req.user.companyId);
     const distance = calculateDistance(Number(lat), Number(lng), Number(office.lat), Number(office.lng));
     const allowedRadius = Number(office.radius || 100);
 
@@ -42,7 +51,8 @@ router.post('/attendance/submit', authMiddleware, async (req, res) => {
     }
 
     const absenBaru = await Attendance.create({
-      userId: req.user.id, email: req.user.email, name: req.user.name,
+      userId: req.user.id, companyId: req.user.companyId,
+      email: req.user.email, name: req.user.name,
       profilePicture: req.user.profilePicture, latitude: lat, longitude: lng, type: clockType,
     });
 
@@ -54,11 +64,18 @@ router.post('/attendance/submit', authMiddleware, async (req, res) => {
 });
 
 // Attendance History
-router.get('/attendance/history', authMiddleware, async (req, res) => {
+router.get('/attendance/history', authMiddleware, requireCompany, async (req, res) => {
   try {
     const { email, month, year } = req.query;
-    const targetEmail = ['admin', 'manager', 'hrd'].includes(req.user.role) ? (email || req.user.email) : req.user.email;
+    const isPrivileged = ['super_admin', 'admin', 'manager', 'hrd'].includes(req.user.role);
+    const targetEmail = isPrivileged ? (email || req.user.email) : req.user.email;
     const where = { email: { [Op.iLike]: targetEmail.trim() } };
+
+    // Company isolation
+    if (req.user.role !== 'super_admin') {
+      where.companyId = req.user.companyId;
+    }
+
     if (month !== undefined && year !== undefined) {
       const start = new Date(year, month, 1);
       const end = new Date(year, parseInt(month) + 1, 0, 23, 59, 59);
@@ -72,13 +89,20 @@ router.get('/attendance/history', authMiddleware, async (req, res) => {
 });
 
 // Summary Today
-router.get('/attendance/summary/today', authMiddleware, async (req, res) => {
+router.get('/attendance/summary/today', authMiddleware, requireCompany, async (req, res) => {
   try {
     const jakartaDateStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
     const start = new Date(`${jakartaDateStr}T00:00:00.000+07:00`);
     const end = new Date(`${jakartaDateStr}T23:59:59.999+07:00`);
-    const totalStaff = await User.count();
-    const todayRecords = await Attendance.findAll({ where: { timestamp: { [Op.between]: [start, end] } } });
+
+    // Company isolation
+    const companyFilter = {};
+    if (req.user.role !== 'super_admin') {
+      companyFilter.companyId = req.user.companyId;
+    }
+
+    const totalStaff = await User.count({ where: companyFilter });
+    const todayRecords = await Attendance.findAll({ where: { timestamp: { [Op.between]: [start, end] }, ...companyFilter } });
 
     const usersAttendance = {};
     todayRecords.forEach(r => {
@@ -113,13 +137,20 @@ router.get('/attendance/summary/today', authMiddleware, async (req, res) => {
 });
 
 // Monthly Report
-router.get('/attendance/summary/monthly', authMiddleware, requireRole('admin', 'manager', 'hrd'), async (req, res) => {
+router.get('/attendance/summary/monthly', authMiddleware, requireCompany, requireRole('super_admin', 'admin', 'manager', 'hrd'), async (req, res) => {
   try {
     const { month, year } = req.query;
     const start = new Date(year, month, 1);
     const end = new Date(year, parseInt(month) + 1, 0, 23, 59, 59);
-    const users = await User.findAll({ order: [['name', 'ASC']] });
-    const attendance = await Attendance.findAll({ where: { timestamp: { [Op.between]: [start, end] } } });
+
+    // Company isolation
+    const companyFilter = {};
+    if (req.user.role !== 'super_admin') {
+      companyFilter.companyId = req.user.companyId;
+    }
+
+    const users = await User.findAll({ where: companyFilter, order: [['name', 'ASC']] });
+    const attendance = await Attendance.findAll({ where: { timestamp: { [Op.between]: [start, end] }, ...companyFilter } });
     const lateThresholdMinutes = 9 * 60 + 15;
 
     const attendanceMap = {};
@@ -169,14 +200,21 @@ router.get('/attendance/summary/monthly', authMiddleware, requireRole('admin', '
 });
 
 // Daily Report
-router.get('/attendance/summary/daily', authMiddleware, requireRole('admin', 'manager', 'hrd'), async (req, res) => {
+router.get('/attendance/summary/daily', authMiddleware, requireCompany, requireRole('super_admin', 'admin', 'manager', 'hrd'), async (req, res) => {
   try {
     const { date } = req.query;
     const dateStr = date || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
     const startOfDay = new Date(`${dateStr}T00:00:00.000+07:00`);
     const endOfDay = new Date(`${dateStr}T23:59:59.999+07:00`);
-    const users = await User.findAll({ attributes: ['id', 'name', 'email', 'position', 'department', 'profilePicture', 'role'], order: [['name', 'ASC']] });
-    const attendance = await Attendance.findAll({ where: { timestamp: { [Op.between]: [startOfDay, endOfDay] } } });
+
+    // Company isolation
+    const companyFilter = {};
+    if (req.user.role !== 'super_admin') {
+      companyFilter.companyId = req.user.companyId;
+    }
+
+    const users = await User.findAll({ where: companyFilter, attributes: ['id', 'name', 'email', 'position', 'department', 'profilePicture', 'role'], order: [['name', 'ASC']] });
+    const attendance = await Attendance.findAll({ where: { timestamp: { [Op.between]: [startOfDay, endOfDay] }, ...companyFilter } });
     const lateThresholdMinutes = 9 * 60 + 15;
 
     const attendanceMap = {};

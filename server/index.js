@@ -15,6 +15,7 @@ const employeesRoutes = require('./routes/employees');
 const requestsRoutes = require('./routes/requests');
 const payrollRoutes = require('./routes/payroll');
 const settingsRoutes = require('./routes/settings');
+const companiesRoutes = require('./routes/companies');
 
 // Services
 const { initCronJobs } = require('./services/cronJobs');
@@ -71,6 +72,7 @@ if (process.env.NODE_ENV === 'production') {
 app.use('/api', authRoutes);
 app.use('/api', attendanceRoutes);
 app.use('/api/employees', employeesRoutes);
+app.use('/api/companies', companiesRoutes);
 // Profile route (needs to be before /api/requests to avoid conflict)
 app.put('/api/users/profile', require('./middleware/auth').authMiddleware, async (req, res) => {
   const { validateProfileInput } = require('./helpers/validation');
