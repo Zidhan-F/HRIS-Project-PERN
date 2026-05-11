@@ -727,9 +727,11 @@ function App() {
 
       {/* Floating Clock Button & Mobile Bottom Bar */}
       <div className="mobile-bottom-nav"></div>
-      <button className={`fab-clock ${isClockedIn ? 'is-in' : 'is-out'}`} onClick={handleFabClick} disabled={clockLoading}>
-        <span className="material-icons-outlined">{clockLoading ? 'sync' : (isClockedIn ? 'logout' : 'login')}</span>
-      </button>
+      {user?.role !== 'super_admin' && (
+        <button className={`fab-clock ${isClockedIn ? 'is-in' : 'is-out'}`} onClick={handleFabClick} disabled={clockLoading}>
+          <span className="material-icons-outlined">{clockLoading ? 'sync' : (isClockedIn ? 'logout' : 'login')}</span>
+        </button>
+      )}
 
       {/* Modals */}
       {isEditingProfile && <EditProfileModal editFormData={editFormData} handleEditChange={handleEditChange} handleSaveProfile={handleSaveProfile} isSavingProfile={isSavingProfile} onClose={() => setIsEditingProfile(false)} />}
