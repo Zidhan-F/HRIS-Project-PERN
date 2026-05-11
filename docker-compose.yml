@@ -1,13 +1,15 @@
 services:
-  mongodb:
-    image: mongo:latest
-
-    container_name: ems-mongodb
+  db:
+    image: postgres:latest
+    container_name: ems-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: zidhan24
+      POSTGRES_DB: ems_db
     ports:
-      - "27018:27017"
+      - "5432:5432"
     volumes:
-      - ems-db-data:/data/db
-
+      - ems-pg-data:/var/lib/postgresql/data
     restart: always
 
   backend:
@@ -21,10 +23,10 @@ services:
       - ./server/.env
     environment:
       - PORT=5000
-      - MONGO_URI=mongodb://mongodb:27017/ems_db
+      - DATABASE_URL=postgres://postgres:zidhan24@db:5432/ems_db
       - CHOKIDAR_USEPOLLING=true
     depends_on:
-      - mongodb
+      - db
     volumes:
       - ./server:/app
       - /app/node_modules
@@ -46,5 +48,4 @@ services:
     restart: always
 
 volumes:
-  ems-db-data:
-
+  ems-pg-data:

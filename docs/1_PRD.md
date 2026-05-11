@@ -127,7 +127,7 @@ Perusahaan membutuhkan sistem terpadu untuk:
 | Auth | Google OAuth 2.0 (@react-oauth/google) |
 | HTTP | Axios (with interceptor) |
 | Backend | Node.js + Express.js |
-| Database | MongoDB (Dockerized) + Mongoose |
+| Database | PostgreSQL + Sequelize ORM |
 | Security | Helmet, express-rate-limit, CORS |
 | Calendar | node-ical (holiday integration) |
 | Automation | node-cron (attendance reminders, payroll calculation) |

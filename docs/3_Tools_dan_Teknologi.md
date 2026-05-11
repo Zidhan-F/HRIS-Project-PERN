@@ -13,8 +13,8 @@ Dokumen ini merinci tumpukan teknologi (tech stack) yang digunakan dalam pengemb
   - **Vite**: Build tool modern yang digunakan untuk pengembangan frontend yang cepat.
 
 ## 3. Database
-- **MongoDB**: Database NoSQL berbasis dokumen untuk penyimpanan data yang fleksibel.
-- **Mongoose**: ODM (Object Data Modeling) untuk mendefinisikan skema data dan berinteraksi dengan MongoDB.
+- **PostgreSQL**: Relational database (RDBMS) untuk penyimpanan data yang terstruktur dan handal.
+- **Sequelize**: ORM (Object-Relational Mapping) untuk berinteraksi dengan PostgreSQL menggunakan JavaScript.
 
 ## 4. Tools Pendukung
 - **Autentikasi**: 
@@ -39,5 +39,5 @@ Dokumen ini merinci tumpukan teknologi (tech stack) yang digunakan dalam pengemb
 
 ## 5. Hardware
 - **Development**: Perangkat komputer (Laptop/PC) dengan spesifikasi standar pengembangan web.
-- **Production/Deployment**: Cloud Server (VPS atau Platform-as-a-Service) yang menjalankan runtime Node.js dan instance MongoDB.
+- **Production/Deployment**: Cloud Server (VPS atau Platform-as-a-Service) yang menjalankan runtime Node.js dan instance PostgreSQL.
 - **Client Access**: Smartphone atau Laptop dengan browser modern (Chrome, Safari, Edge) untuk mengakses fitur aplikasi, terutama fitur GPS untuk absensi.

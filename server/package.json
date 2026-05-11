@@ -29,6 +29,6 @@
     "sequelize": "^6.37.8"
   },
   "devDependencies": {
-    "mongoose": "^9.6.1"
+    "nodemon": "^3.1.0"
   }
 }
